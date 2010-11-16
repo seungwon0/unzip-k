@@ -1,0 +1,251 @@
+#!/usr/bin/perl
+#
+# unzip-k - extract a ZIP archive containing file names encoded in
+# Microsoft's CP949
+#
+# unzip-k will extract compressed files from a ZIP archive containing
+# file names encoded in Microsoft's CP949.
+#
+# This program requires Archive::Zip module. In Ubuntu 10.10, you may
+# need to install libarchive-zip-perl package.
+#
+# Seungwon Jeong <seungwon0@gmail.com>
+#
+# Copyright (C) 2010 by Seungwon Jeong
+
+use strict;
+
+use warnings;
+
+use Archive::Zip qw( :ERROR_CODES :CONSTANTS );
+
+use Encode;
+
+if (@ARGV != 1) {
+    print_banner();
+    print "\n";
+    print_usage();
+    exit;
+}
+
+ARCHIVE:
+for my $archive ($ARGV[0], "$ARGV[0].zip", "$ARGV[0].ZIP") {
+    next ARCHIVE if ! -f $archive;
+    extract_archive($archive) and exit;
+}
+
+die "unzip-k:  cannot find or open $ARGV[0], $ARGV[0].zip or $ARGV[0].ZIP.\n";
+
+sub print_banner {
+    print "UnZip-K 0.1 November 2010, by Seungwon Jeong.\n";
+    return;
+}
+
+sub print_usage {
+    print "Usage: unzip-k file[.zip]\n";
+    return;
+}
+
+sub extract_archive {
+    my ($archive_name) = @_;
+
+    print "Archive:  $archive_name\n";
+
+    my $zip = Archive::Zip->new();
+
+    $zip->read($archive_name) == AZ_OK or return;
+
+    my $replace;
+
+    for my $member ($zip->members()) {
+	extract_member($member, \$replace);
+    }
+
+    return 1;
+}
+
+sub extract_member {
+    my ($member, $replace_ref) = @_;
+
+    my $extracted_name = decode_name_of($member);
+
+    # Check existing file or directory
+  CHECK:
+    while (-e $extracted_name) {
+	return if defined ${$replace_ref} && ${$replace_ref} eq 'None';
+
+	return if -d $extracted_name && $member->isDirectory();
+
+	last CHECK if defined ${$replace_ref} && ${$replace_ref} eq 'All';
+
+	my $response = get_response_for($extracted_name);
+	if ($response eq 'yes') {
+	    last CHECK;
+	}
+	elsif ($response eq 'no') {
+	    return;
+	}
+	elsif ($response eq 'All') {
+	    ${$replace_ref} = 'All';
+	    last CHECK;
+	}
+	elsif ($response eq 'None') {
+	    ${$replace_ref} = 'None';
+	    return;
+	}
+	elsif ($response eq 'rename') {
+	    $extracted_name = get_new_name();
+	    next CHECK;
+	}
+    }
+
+    print_progress_using($member, $extracted_name);
+
+    $member->extractToFileNamed($extracted_name) == AZ_OK
+	or warn "extract error!\n";
+
+    return;
+}
+
+sub decode_name_of {
+    my ($member) = @_;
+
+    # CP949 -> UTF-8
+    my $ENCODING = 'cp949';
+    return encode_utf8(decode($ENCODING, $member->fileName()));
+}
+
+sub get_response_for {
+    my ($extracted_name) = @_;
+
+    my %pattern_for = (
+	yes    => qr{^y}xms,
+	no     => qr{^n}xms,
+	All    => qr{^A}xms,
+	None   => qr{^N}xms,
+	rename => qr{^r}xms,
+    );
+
+  RESPONSE:
+    while (1) {
+	print "replace $extracted_name? "
+	    . "[y]es, [n]o, [A]ll, [N]one, [r]ename: "
+		;
+
+	my $response = <STDIN>;
+	if (! defined $response) {
+	    print qq{\n(EOF or read error, treating as "[N]one" ...)\n};
+	    return 'None';
+	}
+
+	chomp $response;
+	if ($response =~ $pattern_for{yes}) {
+	    return 'yes';
+	}
+	elsif ($response =~ $pattern_for{no}) {
+	    return 'no';
+	}
+	elsif ($response =~ $pattern_for{All}) {
+	    return 'All'
+	}
+	elsif ($response =~ $pattern_for{None}) {
+	    return 'None';
+	}
+	elsif ($response =~ $pattern_for{rename}) {
+	    return 'rename';
+	}
+	else {
+	    if ($response eq q{}) {
+		warn "error:  invalid response [{ENTER}]\n";
+	    }
+	    else {
+		warn "error:  invalid response [$response]\n";
+	    }
+	    next RESPONSE;
+	}
+    }
+
+    return;
+}
+
+sub get_new_name {
+    my $new_name;
+
+  NAME:
+    while (1) {
+	print 'new name: ';
+
+	$new_name = <STDIN>;
+	next NAME if ! defined $new_name;
+
+	chomp $new_name;
+	last NAME if $new_name ne q{};
+    }
+
+    return $new_name;
+}
+
+sub print_progress_using {
+    my ($member, $extracted_name) = @_;
+
+    if ($member->isDirectory()) {
+	print "  creating: $extracted_name\n";
+    }
+    elsif ($member->desiredCompressionMethod() == COMPRESSION_STORED) {
+	print " extracting: $extracted_name\n";
+    }
+    else {
+	print "  inflating: $extracted_name\n";
+    }
+
+    return;
+}
+
+__END__
+
+=head1 NAME
+
+unzip-k - extract a ZIP archive containing file names encoded in
+Microsoft's CP949
+
+=head1 VERSION
+
+This documentation refers to unzip-k version 0.1.
+
+=head1 USAGE
+
+B<unzip-k> F<file[.zip]>
+
+=head1 REQUIRED ARGUMENTS
+
+=over
+
+=item F<file[.zip]>
+
+Path of the ZIP archive.
+
+=back
+
+=head1 DESCRIPTION
+
+I<unzip-k> will extract compressed files from a ZIP archive containing
+file names encoded in Microsoft's CP949.
+
+This program requires Archive::Zip module. In Ubuntu 10.10, you may
+need to install libarchive-zip-perl package.
+
+C<sudo apt-get install libarchive-zip-perl>
+
+=head1 DEPENDENCIES
+
+This program uses C<Archive::Zip>, C<Encode> modules.
+
+=head1 AUTHOR
+
+Seungwon Jeong E<lt>seungwon0@gmail.comE<gt>
+
+=head1 SEE ALSO
+
+unzip(1)
+
+=cut
