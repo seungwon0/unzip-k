@@ -69,10 +69,15 @@ sub extract_archive {
     for my $member ($zip->members()) {
 	my $member_name = decode_name_of($member);
 
-      FILE:
-	for my $file (@files) {
-	    next FILE if ! match_glob($file, $member_name);
-	    $matched{$file} = 1;
+	if (@files) {
+	  FILE:
+	    for my $file (@files) {
+		next FILE if ! match_glob($file, $member_name);
+		$matched{$file} = 1;
+		extract_member($member, \$replace);
+	    }
+	}
+	else {
 	    extract_member($member, \$replace);
 	}
     }
