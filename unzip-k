@@ -29,8 +29,15 @@ use Getopt::Long;
 use Text::Glob qw( match_glob );
 $Text::Glob::strict_wildcard_slash = 0;
 
+use File::Spec;
+
 my @xfiles;
-GetOptions('x=s{,}' => \@xfiles);
+my $exdir;
+
+GetOptions(
+    'x=s{,}' => \@xfiles,
+    'd=s'    => \$exdir
+);
 
 if (@ARGV < 1) {
     print_banner();
@@ -45,7 +52,7 @@ my @files = @ARGV;
 ARCHIVE:
 for my $archive ($file, "$file.zip", "$file.ZIP") {
     next ARCHIVE if ! -f $archive;
-    extract_archive($archive, \@files, \@xfiles) and exit;
+    extract_archive($archive, \@files, \@xfiles, $exdir) and exit;
 }
 
 die "unzip-k:  cannot find or open $file, $file.zip or $file.ZIP.\n";
@@ -56,12 +63,17 @@ sub print_banner {
 }
 
 sub print_usage {
-    print "Usage: unzip-k file[.zip] [file(s) ...] [-x xfile(s) ...]\n";
+    print <<'END_USAGE';
+Usage: unzip-k file[.zip] [file(s) ...] [-x xfile(s) ...] [-d exdir]
+  Default action is to extract files in list, except those in xlist, to exdir.
+
+  -x  exclude files that follow (in xlist)   -d  extract files into exdir
+END_USAGE
     return;
 }
 
 sub extract_archive {
-    my ($archive_name, $files_ref, $xfiles_ref) = @_;
+    my ($archive_name, $files_ref, $xfiles_ref, $exdir) = @_;
 
     print "Archive:  $archive_name\n";
 
@@ -93,12 +105,12 @@ sub extract_archive {
 	    for my $file (@{$files_ref}) {
 		if (match_glob($file, $member_name)) {
 		    $matched_files{$file} = 1;
-		    extract_member($member, \$replace);
+		    extract_member($member, \$replace, $exdir);
 		}
 	    }
 	}
 	else {
-	    extract_member($member, \$replace);
+	    extract_member($member, \$replace, $exdir);
 	}
     }
 
@@ -114,9 +126,13 @@ sub extract_archive {
 }
 
 sub extract_member {
-    my ($member, $replace_ref) = @_;
+    my ($member, $replace_ref, $exdir) = @_;
 
+    # Get file name to be extracted
     my $extracted_name = decode_name_of($member);
+    if ($exdir) {
+	$extracted_name = File::Spec->catfile($exdir, $extracted_name);
+    }
 
     # Check existing file or directory
   CHECK:
@@ -260,7 +276,7 @@ encoded in Microsoft's CP949
 
 =head1 SYNOPSIS
 
-B<unzip-k> F<file>[F<.zip>] [F<file(s)>] [-x F<xfile(s)> ...]
+B<unzip-k> F<file>[F<.zip>] [F<file(s)>] [-x F<xfile(s)> ...] [-d F<exdir>]
 
 
 =head1 DESCRIPTION
@@ -300,6 +316,21 @@ extract all C source files in the main directory, but none in any
 subdirectories.  Without the -x option, all C source files in all
 directories within the zipfile would be extracted.
 
+=item [-d F<exdir>]
+
+An optional directory to which to extract files.  By default, all
+files and subdirectories are recreated in the current direc‐ tory; the
+-d option allows extraction in an arbitrary directory (always assuming
+one has permission to write to the directory).  This option need not
+appear at the end of the command line; it is also accepted before the
+zipfile specification (with the nor‐ mal options), immediately after
+the zipfile specification, or between the file(s) and the -x option.
+The option and directory may be concatenated without any white space
+between them, but note that this may cause normal shell behavior to be
+suppressed.  In particular, ``-d ~'' (tilde) is expanded by Unix C
+shells into the name of the user's home directory, but ``-d~'' is
+treated as a literal subdirectory ``~'' of the current direc‐ tory.
+
 =back
 
 
@@ -311,6 +342,13 @@ subdirectories as necessary:
 
 unzip letters
 
+To extract all FORTRAN and C source files--*.f, *.c, *.h, and
+Makefile--into the /tmp directory:
+
+unzip source.zip "*.[fch]" Makefile -d /tmp
+
+(the double quotes are necessary only in Unix and only if globbing is
+turned on).
 
 =head1 DEPENDENCIES
 
@@ -323,6 +361,8 @@ unzip letters
 =item C<Text::Glob>
 
 =item C<Getopt::Long>
+
+=item C<File::Spec>
 
 =back
 
