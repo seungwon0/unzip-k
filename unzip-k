@@ -1,13 +1,14 @@
 #!/usr/bin/perl
 #
-# unzip-k - extract a ZIP archive containing file names encoded in
-# Microsoft's CP949
+# unzip-k - extract a ZIP archive containing file or directory name
+# encoded in Microsoft's CP949
 #
 # unzip-k will extract compressed files from a ZIP archive containing
-# file names encoded in Microsoft's CP949.
+# file or directory name encoded in Microsoft's CP949.
 #
-# This program requires Archive::Zip module. In Ubuntu 10.10, you may
-# need to install libarchive-zip-perl package.
+# This program requires Archive::Zip and Text::Glob module. In Ubuntu,
+# you may need to install libarchive-zip-perl and libtext-glob-perl
+# package.
 #
 # Seungwon Jeong <seungwon0@gmail.com>
 #
@@ -21,33 +22,39 @@ use Archive::Zip qw( :ERROR_CODES :CONSTANTS );
 
 use Encode;
 
-if (@ARGV != 1) {
+use Text::Glob qw( match_glob );
+$Text::Glob::strict_wildcard_slash = 0;
+
+if (@ARGV < 1) {
     print_banner();
     print "\n";
     print_usage();
     exit;
 }
 
+my $file  = shift @ARGV;
+my @files = @ARGV;
+
 ARCHIVE:
-for my $archive ($ARGV[0], "$ARGV[0].zip", "$ARGV[0].ZIP") {
+for my $archive ($file, "$file.zip", "$file.ZIP") {
     next ARCHIVE if ! -f $archive;
-    extract_archive($archive) and exit;
+    extract_archive($archive, @files) and exit;
 }
 
-die "unzip-k:  cannot find or open $ARGV[0], $ARGV[0].zip or $ARGV[0].ZIP.\n";
+die "unzip-k:  cannot find or open $file, $file.zip or $file.ZIP.\n";
 
 sub print_banner {
-    print "UnZip-K 0.1 November 2010, by Seungwon Jeong.\n";
+    print "UnZip-K 0.2 November 2010, by Seungwon Jeong.\n";
     return;
 }
 
 sub print_usage {
-    print "Usage: unzip-k file[.zip]\n";
+    print "Usage: unzip-k file[.zip] [file(s) ...]\n";
     return;
 }
 
 sub extract_archive {
-    my ($archive_name) = @_;
+    my ($archive_name, @files) = @_;
 
     print "Archive:  $archive_name\n";
 
@@ -55,10 +62,24 @@ sub extract_archive {
 
     $zip->read($archive_name) == AZ_OK or return;
 
+    my %matched = map { $_ => 0 } @files;
+
     my $replace;
 
     for my $member ($zip->members()) {
-	extract_member($member, \$replace);
+	my $member_name = decode_name_of($member);
+
+      FILE:
+	for my $file (@files) {
+	    next FILE if ! match_glob($file, $member_name);
+	    $matched{$file} = 1;
+	    extract_member($member, \$replace);
+	}
+    }
+
+    # Check unmatched filenames
+    for my $file (grep { ! $matched{$_} } @files) {
+	print "caution: filename not matched:  $file\n";
     }
 
     return 1;
@@ -205,18 +226,28 @@ __END__
 
 =head1 NAME
 
-unzip-k - extract a ZIP archive containing file names encoded in
-Microsoft's CP949
+unzip-k - extract a ZIP archive containing file or directory name
+encoded in Microsoft's CP949
 
-=head1 VERSION
 
-This documentation refers to unzip-k version 0.1.
+=head1 SYNOPSIS
 
-=head1 USAGE
+B<unzip-k> F<file[.zip]> F<[file(s)]>
 
-B<unzip-k> F<file[.zip]>
 
-=head1 REQUIRED ARGUMENTS
+=head1 DESCRIPTION
+
+I<unzip-k> will extract compressed files from a ZIP archive containing
+file or directory name encoded in Microsoft's CP949. The default
+behavior (with no options) is to extract into the current directory
+(and subdirectories below it) all files from the specified ZIP
+archive.  A companion program, zip(1), creates ZIP archives; both
+programs are compatible with archives created by PKWARE's PKZIP and
+PKUNZIP for MS-DOS, but in many cases the program options or default
+behaviors differ.
+
+
+=head1 ARGUMENTS
 
 =over
 
@@ -224,28 +255,51 @@ B<unzip-k> F<file[.zip]>
 
 Path of the ZIP archive.
 
+=item F<[file(s)]>
+
+An optional list of archive members to be processed, separated by
+spaces.  Regular expressions (wildcards) may be used to match multiple
+members.  Be sure to quote expressions that would otherwise be
+expanded or modified by the operating system.
+
 =back
 
-=head1 DESCRIPTION
 
-I<unzip-k> will extract compressed files from a ZIP archive containing
-file names encoded in Microsoft's CP949.
+=head1 EXAMPLES
 
-This program requires Archive::Zip module. In Ubuntu 10.10, you may
-need to install libarchive-zip-perl package.
+To use unzip to extract all members of the archive letters.zip into
+the current directory and subdirectories below it, creating any
+subdirectories as necessary:
 
-C<sudo apt-get install libarchive-zip-perl>
+unzip letters
+
 
 =head1 DEPENDENCIES
 
-This program uses C<Archive::Zip>, C<Encode> modules.
+=over
+
+=item C<Archive::Zip>
+
+=item C<Encode>
+
+=item C<Text::Glob>
+
+=back
+
+
+=head1 URL
+
+https://github.com/seungwon0/unzip-k
+
 
 =head1 AUTHOR
 
 Seungwon Jeong E<lt>seungwon0@gmail.comE<gt>
 
+
 =head1 SEE ALSO
 
-unzip(1)
+funzip(1), zip(1), unzip(1), zipcloak(1), zipgrep(1), zipinfo(1),
+zipnote(1), zipsplit(1)
 
 =cut
