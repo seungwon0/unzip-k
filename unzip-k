@@ -6,9 +6,9 @@
 # unzip-k will extract compressed files from a ZIP archive containing
 # file or directory name encoded in Microsoft's CP949.
 #
-# This program requires Archive::Zip and Text::Glob module. In Ubuntu,
-# you may need to install libarchive-zip-perl and libtext-glob-perl
-# package.
+# This program requires Archive::Zip and Text::Glob modules. In
+# Ubuntu, you may need to install libarchive-zip-perl and
+# libtext-glob-perl package.
 #
 # Seungwon Jeong <seungwon0@gmail.com>
 #
@@ -44,7 +44,7 @@ for my $archive ($file, "$file.zip", "$file.ZIP") {
 die "unzip-k:  cannot find or open $file, $file.zip or $file.ZIP.\n";
 
 sub print_banner {
-    print "UnZip-K 0.2 November 2010, by Seungwon Jeong.\n";
+    print "UnZip-K 0.3 November 2010, by Seungwon Jeong.\n";
     return;
 }
 
@@ -237,7 +237,7 @@ encoded in Microsoft's CP949
 
 =head1 SYNOPSIS
 
-B<unzip-k> F<file[.zip]> F<[file(s)]>
+B<unzip-k> F<file>[F<.zip>] [F<file(s)>]
 
 
 =head1 DESCRIPTION
@@ -256,11 +256,11 @@ behaviors differ.
 
 =over
 
-=item F<file[.zip]>
+=item F<file>[F<.zip>]
 
 Path of the ZIP archive.
 
-=item F<[file(s)]>
+=item [F<file(s)>]
 
 An optional list of archive members to be processed, separated by
 spaces.  Regular expressions (wildcards) may be used to match multiple
