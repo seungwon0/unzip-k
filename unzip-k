@@ -10,6 +10,8 @@
 # Ubuntu, you may need to install libarchive-zip-perl and
 # libtext-glob-perl package.
 #
+# http://ubuntu.or.kr/viewtopic.php?f=4&t=13970
+#
 # Seungwon Jeong <seungwon0@gmail.com>
 #
 # Copyright (C) 2010 by Seungwon Jeong
@@ -22,8 +24,13 @@ use Archive::Zip qw( :ERROR_CODES :CONSTANTS );
 
 use Encode;
 
+use Getopt::Long;
+
 use Text::Glob qw( match_glob );
 $Text::Glob::strict_wildcard_slash = 0;
+
+my @xfiles;
+GetOptions('x=s{,}' => \@xfiles);
 
 if (@ARGV < 1) {
     print_banner();
@@ -38,7 +45,7 @@ my @files = @ARGV;
 ARCHIVE:
 for my $archive ($file, "$file.zip", "$file.ZIP") {
     next ARCHIVE if ! -f $archive;
-    extract_archive($archive, @files) and exit;
+    extract_archive($archive, \@files, \@xfiles) and exit;
 }
 
 die "unzip-k:  cannot find or open $file, $file.zip or $file.ZIP.\n";
@@ -49,12 +56,12 @@ sub print_banner {
 }
 
 sub print_usage {
-    print "Usage: unzip-k file[.zip] [file(s) ...]\n";
+    print "Usage: unzip-k file[.zip] [file(s) ...] [-x xfile(s) ...]\n";
     return;
 }
 
 sub extract_archive {
-    my ($archive_name, @files) = @_;
+    my ($archive_name, $files_ref, $xfiles_ref) = @_;
 
     print "Archive:  $archive_name\n";
 
@@ -62,19 +69,32 @@ sub extract_archive {
 
     $zip->read($archive_name) == AZ_OK or return;
 
-    my %matched = map { $_ => 0 } @files;
+    my %matched_files  = map { $_ => 0 } @{$files_ref};
+    my %matched_xfiles = map { $_ => 0 } @{$xfiles_ref};
 
     my $replace;
 
+  MEMBER:
     for my $member ($zip->members()) {
 	my $member_name = decode_name_of($member);
 
-	if (@files) {
-	  FILE:
-	    for my $file (@files) {
-		next FILE if ! match_glob($file, $member_name);
-		$matched{$file} = 1;
-		extract_member($member, \$replace);
+	# Check archive members to be excluded from processing
+	if (@{$xfiles_ref}) {
+	    for my $xfile (@{$xfiles_ref}) {
+		if (match_glob($xfile, $member_name)) {
+		    $matched_xfiles{$xfile} = 1;
+		    next MEMBER;
+		}
+	    }
+	}
+
+	if (@{$files_ref}) {
+	    # Check archive members to be processed
+	    for my $file (@{$files_ref}) {
+		if (match_glob($file, $member_name)) {
+		    $matched_files{$file} = 1;
+		    extract_member($member, \$replace);
+		}
 	    }
 	}
 	else {
@@ -82,9 +102,12 @@ sub extract_archive {
 	}
     }
 
-    # Check unmatched filenames
-    for my $file (grep { ! $matched{$_} } @files) {
-	print "caution: filename not matched:  $file\n";
+    # print caution about unmatched filenames
+    for my $file (grep { ! $matched_files{$_} } @{$files_ref}) {
+	print "caution: filename not matched_files:  $file\n";
+    }
+    for my $xfile (grep { ! $matched_xfiles{$_} } @{$xfiles_ref}) {
+	print "caution: excluded filename not matched_files:  $xfile\n";
     }
 
     return 1;
@@ -237,7 +260,7 @@ encoded in Microsoft's CP949
 
 =head1 SYNOPSIS
 
-B<unzip-k> F<file>[F<.zip>] [F<file(s)>]
+B<unzip-k> F<file>[F<.zip>] [F<file(s)>] [-x F<xfile(s)> ...]
 
 
 =head1 DESCRIPTION
@@ -267,6 +290,16 @@ spaces.  Regular expressions (wildcards) may be used to match multiple
 members.  Be sure to quote expressions that would otherwise be
 expanded or modified by the operating system.
 
+=item [-x F<file(s)>]
+
+An optional list of archive members to be excluded from processing.
+Since wildcard characters normally match (`/') directory separators,
+this option may be used to exclude any files that are in
+subdirectories.  For example, ``unzip foo *.[ch] -x */*'' would
+extract all C source files in the main directory, but none in any
+subdirectories.  Without the -x option, all C source files in all
+directories within the zipfile would be extracted.
+
 =back
 
 
@@ -288,6 +321,8 @@ unzip letters
 =item C<Encode>
 
 =item C<Text::Glob>
+
+=item C<Getopt::Long>
 
 =back
 
