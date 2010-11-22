@@ -46,13 +46,18 @@ if (@ARGV < 1) {
     exit;
 }
 
-my $file  = shift @ARGV;
-my @files = @ARGV;
+my ($file, @files) = @ARGV;
 
 ARCHIVE:
 for my $archive ($file, "$file.zip", "$file.ZIP") {
     next ARCHIVE if ! -f $archive;
-    extract_archive($archive, \@files, \@xfiles, $exdir) and exit;
+    extract_archive($archive,
+		    {
+			files  => \@files,
+			xfiles => \@xfiles,
+			exdir  => $exdir,
+		    })
+	and exit;
 }
 
 die "unzip-k:  cannot find or open $file, $file.zip or $file.ZIP.\n";
@@ -73,7 +78,10 @@ END_USAGE
 }
 
 sub extract_archive {
-    my ($archive_name, $files_ref, $xfiles_ref, $exdir) = @_;
+    my ($archive_name, $arg_ref) = @_;
+    my $files_ref  = $arg_ref->{files};
+    my $xfiles_ref = $arg_ref->{xfiles};
+    my $exdir	   = $arg_ref->{exdir};
 
     print "Archive:  $archive_name\n";
 
@@ -81,8 +89,8 @@ sub extract_archive {
 
     $zip->read($archive_name) == AZ_OK or return;
 
-    my %matched_files  = map { $_ => 0 } @{$files_ref};
-    my %matched_xfiles = map { $_ => 0 } @{$xfiles_ref};
+    my %file_is_matched;
+    my %xfile_is_matched;
 
     my $replace;
 
@@ -94,7 +102,7 @@ sub extract_archive {
 	if (@{$xfiles_ref}) {
 	    for my $xfile (@{$xfiles_ref}) {
 		if (match_glob($xfile, $member_name)) {
-		    $matched_xfiles{$xfile} = 1;
+		    $xfile_is_matched{$xfile} = 1;
 		    next MEMBER;
 		}
 	    }
@@ -104,21 +112,29 @@ sub extract_archive {
 	    # Check archive members to be processed
 	    for my $file (@{$files_ref}) {
 		if (match_glob($file, $member_name)) {
-		    $matched_files{$file} = 1;
-		    extract_member($member, \$replace, $exdir);
+		    $file_is_matched{$file} = 1;
+		    extract_member($member,
+				   {
+				       replace => \$replace,
+				       exdir   => $exdir,
+				   });
 		}
 	    }
 	}
 	else {
-	    extract_member($member, \$replace, $exdir);
+	    extract_member($member,
+			   {
+			       replace => \$replace,
+			       exdir   => $exdir,
+			   });
 	}
     }
 
     # print caution about unmatched filenames
-    for my $file (grep { ! $matched_files{$_} } @{$files_ref}) {
+    for my $file (grep { ! $file_is_matched{$_} } @{$files_ref}) {
 	print "caution: filename not matched_files:  $file\n";
     }
-    for my $xfile (grep { ! $matched_xfiles{$_} } @{$xfiles_ref}) {
+    for my $xfile (grep { ! $xfile_is_matched{$_} } @{$xfiles_ref}) {
 	print "caution: excluded filename not matched_files:  $xfile\n";
     }
 
@@ -126,7 +142,9 @@ sub extract_archive {
 }
 
 sub extract_member {
-    my ($member, $replace_ref, $exdir) = @_;
+    my ($member, $arg_ref) = @_;
+    my $replace_ref = $arg_ref->{replace};
+    my $exdir	    = $arg_ref->{exdir};
 
     # Get file name to be extracted
     my $extracted_name = decode_name_of($member);
@@ -160,7 +178,9 @@ sub extract_member {
 	}
 	elsif ($response eq 'rename') {
 	    $extracted_name = get_new_name();
-	    next CHECK;
+	}
+	else {
+	    warn "invalid response!\n";
 	}
     }
 
@@ -195,7 +215,7 @@ sub get_response_for {
     while (1) {
 	print "replace $extracted_name? "
 	    . "[y]es, [n]o, [A]ll, [N]one, [r]ename: "
-		;
+	    ;
 
 	my $response = <STDIN>;
 	if (! defined $response) {
