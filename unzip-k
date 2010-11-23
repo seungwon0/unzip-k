@@ -40,8 +40,6 @@ GetOptions(
 );
 
 if (@ARGV < 1) {
-    print_banner();
-    print "\n";
     print_usage();
     exit;
 }
@@ -62,17 +60,16 @@ for my $archive ($file, "$file.zip", "$file.ZIP") {
 
 die "unzip-k:  cannot find or open $file, $file.zip or $file.ZIP.\n";
 
-sub print_banner {
-    print "UnZip-K 0.3 November 2010, by Seungwon Jeong.\n";
-    return;
-}
-
 sub print_usage {
     print <<'END_USAGE';
+UnZip-K 0.3 of 24 November 2010, by Seungwon Jeong.
+
 Usage: unzip-k file[.zip] [file(s) ...] [-x xfile(s) ...] [-d exdir]
   Default action is to extract files in list, except those in xlist, to exdir.
 
   -x  exclude files that follow (in xlist)   -d  extract files into exdir
+Examples:
+  unzip data1 -x joe   => extract all files except joe from zipfile data1.zip
 END_USAGE
     return;
 }
