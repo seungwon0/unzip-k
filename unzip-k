@@ -148,7 +148,7 @@ sub extract_member {
 
     # Get file name to be extracted
     my $extracted_name = decode_name_of($member);
-    if ($exdir) {
+    if (defined $exdir && $exdir ne q{}) {
 	$extracted_name = File::Spec->catfile($exdir, $extracted_name);
     }
 
