@@ -40,17 +40,21 @@ my $crt;
 my $list;
 my $pipe;
 my $test;
-my $comment;
+my $comment_only;
+my $case_insensitive;
 
-# TODO: Support -C, -j, -n, -o, -q, -s and -W modifiers
+# TODO: Support -j, -n, -o, -q, -s and -W modifiers
 GetOptions(
+    # Options
     'x=s{,}' => \@xfiles,
     'd=s'    => \$exdir,
     'c'	     => \$crt,
     'l'      => \$list,
     'p'      => \$pipe,
     't'      => \$test,
-    'z'      => \$comment,
+    'z'      => \$comment_only,
+    # Modifiers
+    'C'      => \$case_insensitive,
 );
 
 if (@ARGV < 1) {
@@ -65,14 +69,15 @@ for my $archive ($file, "$file.zip", "$file.ZIP") {
     next ARCHIVE if ! -f $archive;
     extract_archive($archive,
 		    {
-			files	=> \@files,
-			xfiles	=> \@xfiles,
-			exdir	=> $exdir,
-			crt	=> $crt,
-			list	=> $list,
-			pipe	=> $pipe,
-			test	=> $test,
-			comment => $comment,
+			files		 => \@files,
+			xfiles		 => \@xfiles,
+			exdir		 => $exdir,
+			crt		 => $crt,
+			list		 => $list,
+			pipe		 => $pipe,
+			test		 => $test,
+			comment_only	 => $comment_only,
+			case_insensitive => $case_insensitive,
 		    })
 	and exit;
 }
@@ -81,31 +86,34 @@ die "unzip-k:  cannot find or open $file, $file.zip or $file.ZIP.\n";
 
 sub print_usage {
     print <<'END_USAGE';
-UnZip-K 0.4 of 24 November 2010, by Seungwon Jeong.
+UnZip-K 0.5 of 24 November 2010, by Seungwon Jeong.
 
-Usage: unzip-k [-clptz] file[.zip] [file(s) ...] [-x xfile(s) ...] [-d exdir]
+Usage: unzip-k [-opts[modifiers]] file[.zip] [list] [-x xlist] [-d exdir]
   Default action is to extract files in list, except those in xlist, to exdir.
 
   -p  extract files to pipe, no messages     -l  list files
   -t  test compressed archive data           -z  display archive comment only
   -x  exclude files that follow (in xlist)   -d  extract files into exdir
+modifiers:
+  -C  match filenames case-insensitively
 Examples:
-  unzip data1 -x joe   => extract all files except joe from zipfile data1.zip
-  unzip -p foo | more  => send contents of foo.zip via pipe into program more
+  unzip-k data1 -x joe   => extract all files except joe from zipfile data1.zip
+  unzip-k -p foo | more  => send contents of foo.zip via pipe into program more
 END_USAGE
     return;
 }
 
 sub extract_archive {
     my ($archive_name, $arg_ref) = @_;
-    my $files_ref  = $arg_ref->{files};
-    my $xfiles_ref = $arg_ref->{xfiles};
-    my $exdir	   = $arg_ref->{exdir};
-    my $crt	   = $arg_ref->{crt};
-    my $list       = $arg_ref->{list};
-    my $pipe       = $arg_ref->{pipe};
-    my $test       = $arg_ref->{test};
-    my $comment    = $arg_ref->{comment};
+    my $files_ref	 = $arg_ref->{files};
+    my $xfiles_ref	 = $arg_ref->{xfiles};
+    my $exdir		 = $arg_ref->{exdir};
+    my $crt		 = $arg_ref->{crt};
+    my $list		 = $arg_ref->{list};
+    my $pipe		 = $arg_ref->{pipe};
+    my $test		 = $arg_ref->{test};
+    my $comment_only	 = $arg_ref->{comment_only};
+    my $case_insensitive = $arg_ref->{case_insensitive};
 
     if (!$pipe) {
 	print "Archive:  $archive_name\n";
@@ -123,9 +131,9 @@ sub extract_archive {
     my $total_length = 0;
     my $total_count  = 0;
 
-    my $error;
+    my $error_in_archive;
 
-    if ($list || $test || $comment) {
+    if ($list || $test || $comment_only) {
 	# Print archive comment
 	my $archive_comment = $zip->zipfileComment();
 	if ($archive_comment ne q{}) {
@@ -133,7 +141,7 @@ sub extract_archive {
 	}
     }
 
-    return 1 if $comment;
+    return 1 if $comment_only;
 
     if ($list) {
 	# Print list header
@@ -148,7 +156,9 @@ sub extract_archive {
 	# Check archive members to be excluded from processing
 	if (@{$xfiles_ref}) {
 	    for my $xfile (@{$xfiles_ref}) {
-		if (match_glob($xfile, $member_name)) {
+		if (match_glob($xfile, $member_name)
+			|| ($case_insensitive
+				&& match_glob(lc $xfile, lc $member_name))) {
 		    $xfile_is_matched{$xfile} = 1;
 		    next MEMBER;
 		}
@@ -158,7 +168,9 @@ sub extract_archive {
 	if (@{$files_ref}) {
 	    # Check archive members to be processed
 	    for my $file (@{$files_ref}) {
-		if (match_glob($file, $member_name)) {
+		if (match_glob($file, $member_name)
+			|| ($case_insensitive
+				&& match_glob(lc $file, lc $member_name))) {
 		    $file_is_matched{$file} = 1;
 		    $total_length += $member->uncompressedSize();
 		    $total_count++;
@@ -170,7 +182,7 @@ sub extract_archive {
 				       list    => $list,
 				       pipe    => $pipe,
 				       test    => $test,
-				       error   => \$error,
+				       error   => \$error_in_archive,
 				   });
 		}
 	    }
@@ -186,7 +198,7 @@ sub extract_archive {
 			       list    => $list,
 			       pipe    => $pipe,
 			       test    => $test,
-			       error   => \$error,
+			       error   => \$error_in_archive,
 			   });
 	}
     }
@@ -210,7 +222,7 @@ sub extract_archive {
     }
 
     if ($test) {
-	if ($error) {
+	if ($error_in_archive) {
 	    print "At least one error was detected in $archive_name.\n"
 	}
 	elsif ($total_count == 0) {
@@ -440,7 +452,7 @@ directory name encoded in Microsoft's CP949
 
 =head1 SYNOPSIS
 
-B<unzip-k> [B<-clptz>] F<file>[F<.zip>] [F<file(s)>] [-x F<xfile(s)> ...] [-d F<exdir>]
+B<unzip-k> [B<-clptz>[B<C>]] F<file>[F<.zip>] [F<file(s)>] [-x F<xfile(s)> ...] [-d F<exdir>]
 
 
 =head1 DESCRIPTION
@@ -475,7 +487,7 @@ expanded or modified by the operating system.
 An optional list of archive members to be excluded from processing.
 Since wildcard characters normally match (`/') directory separators,
 this option may be used to exclude any files that are in
-subdirectories.  For example, ``unzip foo *.[ch] -x */*'' would
+subdirectories.  For example, ``unzip-k foo *.[ch] -x */*'' would
 extract all C source files in the main directory, but none in any
 subdirectories.  Without the -x option, all C source files in all
 directories within the zipfile would be extracted.
@@ -535,22 +547,62 @@ display only the archive comment.
 =back
 
 
+=head1 MODIFIERS
+
+=over
+
+=item B<-C>
+
+use case-insensitive matching for the selection of archive entries
+from the command-line list of extract selection patterns.  unzip-k's
+philosophy is ``you get what you ask for''.  Because some file systems
+are fully case-sensitive (notably those under the Unix operating
+system) and because ZIP archives are portable across platforms,
+unzip-k's default behavior is to match both wildcard and literal
+filenames case-sensitively.  That is, specifying ``makefile'' on the
+command line will only match ``makefile'' in the archive, not
+``Makefile'' or ``MAKEFILE'' (and similarly for wildcard
+specifications).  Since this does not correspond to the behavior of
+many other operating/file systems (for example, OS/2 HPFS, which
+preserves mixed case but is not sensitive to it), the -C option may be
+used to force all filename matches to be case-insensitive.  In the
+example above, all three files would then match ``makefile'' (or
+``make*'', or similar).  The -C option affects file specs in both the
+normal file list and the excluded-file list (xlist).
+
+Please note that the -C option does neither affect the search for the
+zipfile(s) nor the matching of archive entries to existing files on
+the extraction path.  On a case-sensitive file system, unzip-k will
+never try to overwrite a file ``FOO'' when extracting an entry
+``foo''!
+
+=back
+
+
 =head1 EXAMPLES
 
-To use unzip to extract all members of the archive letters.zip into
+To use unzip-k to extract all members of the archive letters.zip into
 the current directory and subdirectories below it, creating any
 subdirectories as necessary:
 
-unzip letters
+unzip-k letters
+
+To extract the binary file paper1.dvi to standard output and pipe it
+to a printing program:
+
+unzip-k -p articles paper1.dvi | dvips
 
 To extract all FORTRAN and C source files--*.f, *.c, *.h, and
 Makefile--into the /tmp directory:
 
-unzip source.zip "*.[fch]" Makefile -d /tmp
+unzip-k source.zip "*.[fch]" Makefile -d /tmp
 
 (the double quotes are necessary only in Unix and only if globbing is
-turned on).
+turned on).  To extract all FORTRAN and C source files, regardless of
+case (e.g., both *.c and *.C, and any makefile, Makefile, MAKEFILE or
+similar):
 
+unzip-k -C source.zip "*.[fch]" makefile -d /tmp
 
 =head1 DEPENDENCIES
 
