@@ -30,7 +30,7 @@ use Getopt::Long;
 use Text::Glob qw( match_glob );
 $Text::Glob::strict_wildcard_slash = 0;
 
-use File::Spec::Functions qw (catfile);
+use File::Spec::Functions qw ( catfile );
 
 use POSIX qw( strftime );
 
@@ -241,7 +241,8 @@ sub extract_member {
 
     # Get file name to be extracted
     my $extracted_name = decode_name_of($member);
-    if (!$crt && !$list && !$pipe && defined $exdir && $exdir ne q{}) {
+    if (!$crt && !$list && !$pipe && !$test
+	    && defined $exdir && $exdir ne q{}) {
 	$extracted_name = catfile($exdir, $extracted_name);
     }
 
@@ -310,6 +311,10 @@ sub extract_member {
     }
     elsif ($test) {
 	printf "    testing: %-22s", $extracted_name;
+	my $diff = length($extracted_name) - length($member->fileName());
+	if ($diff > 0) {
+	    print q{ } x $diff;
+	}
 
 	my $crc32 = $member->crc32();
 	my $computed_crc32 = Archive::Zip::computeCRC32($member->contents());
