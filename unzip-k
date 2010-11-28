@@ -523,10 +523,10 @@ I<unzip-k> will list, test or extract compressed files from a ZIP
 archive containing file or directory name encoded in Microsoft's
 CP949. The default behavior (with no options) is to extract into the
 current directory (and subdirectories below it) all files from the
-specified ZIP archive.  A companion program, zip(1), creates ZIP
+specified ZIP archive.  A companion program, I<zip>(1), creates ZIP
 archives; both programs are compatible with archives created by
-PKWARE's PKZIP and PKUNZIP for MS-DOS, but in many cases the program
-options or default behaviors differ.
+PKWARE's I<PKZIP> and I<PKUNZIP> for MS-DOS, but in many cases the
+program options or default behaviors differ.
 
 
 =head1 ARGUMENTS
@@ -563,12 +563,13 @@ files and subdirectories are recreated in the current direc‐ tory; the
 one has permission to write to the directory).  This option need not
 appear at the end of the command line; it is also accepted before the
 zipfile specification (with the nor‐ mal options), immediately after
-the zipfile specification, or between the file(s) and the -x option.
-The option and directory may be concatenated without any white space
-between them, but note that this may cause normal shell behavior to be
-suppressed.  In particular, ``-d ~'' (tilde) is expanded by Unix C
-shells into the name of the user's home directory, but ``-d~'' is
-treated as a literal subdirectory ``~'' of the current direc‐ tory.
+the zipfile specification, or between the F<file(s)> and the -x
+option.  The option and directory may be concatenated without any
+white space between them, but note that this may cause normal shell
+behavior to be suppressed.  In particular, ``-d ~'' (tilde) is
+expanded by Unix C shells into the name of the user's home directory,
+but ``-d~'' is treated as a literal subdirectory ``~'' of the current
+direc‐ tory.
 
 =back
 
@@ -648,11 +649,11 @@ current one).
 =item B<-n>
 
 never overwrite existing files.  If a file already exists, skip the
-extraction of that file without prompting.  By default unzip-k queries
-before extracting any file that already exists; the user may choose to
-overwrite only the current file, overwrite all files, skip extraction
-of the current file, skip extraction of all existing files, or rename
-the current file.
+extraction of that file without prompting.  By default I<unzip-k>
+queries before extracting any file that already exists; the user may
+choose to overwrite only the current file, overwrite all files, skip
+extraction of the current file, skip extraction of all existing files,
+or rename the current file.
 
 =item B<-o>
 
@@ -661,7 +662,7 @@ option, so use it with care.
 
 =item B<-q>
 
-perform operations quietly.  Ordinarily unzip-k prints the names of
+perform operations quietly.  Ordinarily I<unzip-k> prints the names of
 the files it's extracting or testing, the extraction methods, any file
 or zipfile comments that may be stored in the archive, and possibly a
 summary when finished with each archive.  The -q options suppress the
@@ -682,7 +683,7 @@ separator character `/'.  Examples:
 
 =head1 EXAMPLES
 
-To use unzip-k to extract all members of the archive F<letters.zip>
+To use I<unzip-k> to extract all members of the archive F<letters.zip>
 into the current directory and subdirectories below it, creating any
 subdirectories as necessary:
 
@@ -698,8 +699,8 @@ whether the archive is OK or not:
 
 unzip-k -tq letters
 
-To extract the binary file paper1.dvi to standard output and pipe it
-to a printing program:
+To extract the binary file F<paper1.dvi> to standard output and pipe
+it to a printing program:
 
 unzip-k -p articles paper1.dvi | dvips
 
@@ -714,6 +715,7 @@ case (e.g., both *.c and *.C, and any makefile, Makefile, MAKEFILE or
 similar):
 
 unzip-k -C source.zip "*.[fch]" makefile -d /tmp
+
 
 =head1 DEPENDENCIES
 
