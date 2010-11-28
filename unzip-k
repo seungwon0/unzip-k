@@ -31,16 +31,20 @@ $Text::Glob::strict_wildcard_slash = 0;
 
 use File::Spec;
 
+use POSIX qw( strftime );
+
 my @xfiles;
 my $exdir;
 my $crt;
+my $list;
 
-# TODO: Support -l, -p, -t and -z options
+# TODO: Support -p, -t and -z options
 # TODO: Support -C, -j, -n, -o, -q, -s and -W modifiers
 GetOptions(
     'x=s{,}' => \@xfiles,
     'd=s'    => \$exdir,
     'c'	     => \$crt,
+    'l'      => \$list,
 );
 
 if (@ARGV < 1) {
@@ -59,6 +63,7 @@ for my $archive ($file, "$file.zip", "$file.ZIP") {
 			xfiles => \@xfiles,
 			exdir  => $exdir,
 			crt    => $crt,
+			list   => $list,
 		    })
 	and exit;
 }
@@ -72,6 +77,7 @@ UnZip-K 0.3 of 24 November 2010, by Seungwon Jeong.
 Usage: unzip-k file[.zip] [file(s) ...] [-x xfile(s) ...] [-d exdir]
   Default action is to extract files in list, except those in xlist, to exdir.
 
+  -l  list files
   -x  exclude files that follow (in xlist)   -d  extract files into exdir
 Examples:
   unzip data1 -x joe   => extract all files except joe from zipfile data1.zip
@@ -85,6 +91,7 @@ sub extract_archive {
     my $xfiles_ref = $arg_ref->{xfiles};
     my $exdir	   = $arg_ref->{exdir};
     my $crt	   = $arg_ref->{crt};
+    my $list       = $arg_ref->{list};
 
     print "Archive:  $archive_name\n";
 
@@ -96,6 +103,21 @@ sub extract_archive {
     my %xfile_is_matched;
 
     my $replace;
+
+    my $total_length = 0;
+    my $total_count  = 0;
+
+    if ($list) {
+	# Print archive comment
+	my $archive_comment = $zip->zipfileComment();
+	if ($archive_comment ne q{}) {
+	    print $archive_comment, "\n";
+	}
+
+	# Print list header
+	print "  Length      Date    Time    Name\n";
+	print "---------  ---------- -----   ----\n";
+    }
 
   MEMBER:
     for my $member ($zip->members()) {
@@ -116,23 +138,39 @@ sub extract_archive {
 	    for my $file (@{$files_ref}) {
 		if (match_glob($file, $member_name)) {
 		    $file_is_matched{$file} = 1;
+		    $total_length += $member->uncompressedSize();
+		    $total_count++;
 		    extract_member($member,
 				   {
 				       replace => \$replace,
 				       exdir   => $exdir,
 				       crt     => $crt,
+				       list    => $list,
 				   });
 		}
 	    }
 	}
 	else {
+	    $total_length += $member->uncompressedSize();
+	    $total_count++;
 	    extract_member($member,
 			   {
 			       replace => \$replace,
 			       exdir   => $exdir,
 			       crt     => $crt,
+			       list    => $list,
 			   });
 	}
+    }
+
+    if ($list) {
+	# Print list footer
+	print "---------                     -------\n";
+	my $format = "%9u                     %u %s\n";
+	printf $format,
+	       $total_length, $total_count,
+	       $total_count > 1 ? "files" : "file"
+	       ;
     }
 
     # print caution about unmatched filenames
@@ -151,6 +189,7 @@ sub extract_member {
     my $replace_ref = $arg_ref->{replace};
     my $exdir	    = $arg_ref->{exdir};
     my $crt         = $arg_ref->{crt};
+    my $list        = $arg_ref->{list};
 
     # Get file name to be extracted
     my $extracted_name = decode_name_of($member);
@@ -160,7 +199,7 @@ sub extract_member {
 
     # Check existing file or directory
   CHECK:
-    while (!$crt && -e $extracted_name) {
+    while (!$crt && !$list && -e $extracted_name) {
 	return if defined ${$replace_ref} && ${$replace_ref} eq 'None';
 
 	return if -d $extracted_name && $member->isDirectory();
@@ -190,7 +229,9 @@ sub extract_member {
 	}
     }
 
-    print_progress_using($member, $extracted_name);
+    if (!$list) {
+	print_progress_using($member, $extracted_name);
+    }
 
     if ($crt) {
 	my ($contents, $status) = $member->contents();
@@ -199,6 +240,21 @@ sub extract_member {
 	}
 	else {
 	    warn "extract error!\n";
+	}
+    }
+    elsif ($list) {
+	# Print list contents
+	my $format = "%9u  %s   %s\n";
+	printf $format,
+	       $member->uncompressedSize(),
+	       strftime("%F %R", localtime $member->lastModTime()),
+	       $extracted_name
+	       ;
+
+	# Print individual file comment
+	my $file_comment = $member->fileComment();
+	if ($file_comment ne q{}) {
+	    print $file_comment, "\n";
 	}
     }
     else {
@@ -381,6 +437,13 @@ extract files to stdout/screen (``CRT'').  This option is similar to
 the -p option except that the name of each file is printed as it is
 extracted.  This option is not listed in the unzip-k usage screen.
 
+=item B<-l>
+
+list archive files.  The names, uncompressed file sizes and
+modification dates and times of the specified files are printed, along
+with totals for all files specified.  In addition, the zipfile comment
+and individual file comments (if any) are displayed.
+
 =back
 
 
@@ -414,6 +477,8 @@ turned on).
 =item C<Getopt::Long>
 
 =item C<File::Spec>
+
+=item C<POSIX>
 
 =back
 
