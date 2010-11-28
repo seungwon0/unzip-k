@@ -43,8 +43,9 @@ my $test;
 my $comment_only;
 my $case_insensitive;
 my $junk_paths;
+my $never_overwrite;
 
-# TODO: Support -n, -o, -q, -s and -W modifiers
+# TODO: Support -o, -q, -s and -W modifiers
 GetOptions(
     # Options
     'x=s{,}' => \@xfiles,
@@ -57,6 +58,7 @@ GetOptions(
     # Modifiers
     'C'      => \$case_insensitive,
     'j'      => \$junk_paths,
+    'n'      => \$never_overwrite,
 );
 
 if (@ARGV < 1) {
@@ -81,6 +83,7 @@ for my $archive ($file, "$file.zip", "$file.ZIP") {
 			comment_only     => $comment_only,
 			case_insensitive => $case_insensitive,
 			junk_paths       => $junk_paths,
+			never_overwrite  => $never_overwrite,
 		    })
 	and exit;
 }
@@ -98,6 +101,7 @@ Usage: unzip-k [-opts[modifiers]] file[.zip] [list] [-x xlist] [-d exdir]
   -t  test compressed archive data           -z  display archive comment only
   -x  exclude files that follow (in xlist)   -d  extract files into exdir
 modifiers:
+  -n  never overwrite existing files
   -j  junk paths (do not make directories)
   -C  match filenames case-insensitively
 Examples:
@@ -119,6 +123,7 @@ sub extract_archive {
     my $comment_only     = $arg_ref->{comment_only};
     my $case_insensitive = $arg_ref->{case_insensitive};
     my $junk_paths       = $arg_ref->{junk_paths};
+    my $never_overwrite  = $arg_ref->{never_overwrite};
 
     if (!$pipe) {
 	print "Archive:  $archive_name\n";
@@ -132,6 +137,9 @@ sub extract_archive {
     my %xfile_is_matched;
 
     my $replace;
+    if ($never_overwrite) {
+	$replace = 'None';
+    }
 
     my $total_length = 0;
     my $total_count  = 0;
@@ -471,7 +479,7 @@ directory name encoded in Microsoft's CP949
 
 =head1 SYNOPSIS
 
-B<unzip-k> [B<-clptz>[B<jC>]] F<file>[F<.zip>] [F<file(s)>] [-x F<xfile(s)> ...] [-d F<exdir>]
+B<unzip-k> [B<-clptz>[B<jnC>]] F<file>[F<.zip>] [F<file(s)>] [-x F<xfile(s)> ...] [-d F<exdir>]
 
 
 =head1 DESCRIPTION
@@ -600,6 +608,15 @@ never try to overwrite a file ``FOO'' when extracting an entry
 junk paths.  The archive's directory structure is not recreated; all
 files are deposited in the extraction directory (by default, the
 current one).
+
+=item B<-n>
+
+never overwrite existing files.  If a file already exists, skip the
+extraction of that file without prompting.  By default unzip queries
+before extracting any file that already exists; the user may choose to
+overwrite only the current file, overwrite all files, skip extraction
+of the current file, skip extraction of all existing files, or rename
+the current file.
 
 =back
 
