@@ -33,10 +33,14 @@ use File::Spec;
 
 my @xfiles;
 my $exdir;
+my $crt;
 
+# TODO: Support -l, -p, -t and -z options
+# TODO: Support -C, -j, -n, -o, -q, -s and -W modifiers
 GetOptions(
     'x=s{,}' => \@xfiles,
-    'd=s'    => \$exdir
+    'd=s'    => \$exdir,
+    'c'	     => \$crt,
 );
 
 if (@ARGV < 1) {
@@ -54,6 +58,7 @@ for my $archive ($file, "$file.zip", "$file.ZIP") {
 			files  => \@files,
 			xfiles => \@xfiles,
 			exdir  => $exdir,
+			crt    => $crt,
 		    })
 	and exit;
 }
@@ -79,6 +84,7 @@ sub extract_archive {
     my $files_ref  = $arg_ref->{files};
     my $xfiles_ref = $arg_ref->{xfiles};
     my $exdir	   = $arg_ref->{exdir};
+    my $crt	   = $arg_ref->{crt};
 
     print "Archive:  $archive_name\n";
 
@@ -114,6 +120,7 @@ sub extract_archive {
 				   {
 				       replace => \$replace,
 				       exdir   => $exdir,
+				       crt     => $crt,
 				   });
 		}
 	    }
@@ -123,6 +130,7 @@ sub extract_archive {
 			   {
 			       replace => \$replace,
 			       exdir   => $exdir,
+			       crt     => $crt,
 			   });
 	}
     }
@@ -142,6 +150,7 @@ sub extract_member {
     my ($member, $arg_ref) = @_;
     my $replace_ref = $arg_ref->{replace};
     my $exdir	    = $arg_ref->{exdir};
+    my $crt         = $arg_ref->{crt};
 
     # Get file name to be extracted
     my $extracted_name = decode_name_of($member);
@@ -151,7 +160,7 @@ sub extract_member {
 
     # Check existing file or directory
   CHECK:
-    while (-e $extracted_name) {
+    while (!$crt && -e $extracted_name) {
 	return if defined ${$replace_ref} && ${$replace_ref} eq 'None';
 
 	return if -d $extracted_name && $member->isDirectory();
@@ -183,8 +192,19 @@ sub extract_member {
 
     print_progress_using($member, $extracted_name);
 
-    $member->extractToFileNamed($extracted_name) == AZ_OK
-	or warn "extract error!\n";
+    if ($crt) {
+	my ($contents, $status) = $member->contents();
+	if ($status == AZ_OK) {
+	    print $contents, "\n";
+	}
+	else {
+	    warn "extract error!\n";
+	}
+    }
+    else {
+	$member->extractToFileNamed($extracted_name) == AZ_OK
+	    or warn "extract error!\n";
+    }
 
     return;
 }
@@ -351,6 +371,19 @@ treated as a literal subdirectory ``~'' of the current direc‐ tory.
 =back
 
 
+=head1 OPTIONS
+
+=over
+
+=item B<-c>
+
+extract files to stdout/screen (``CRT'').  This option is similar to
+the -p option except that the name of each file is printed as it is
+extracted.  This option is not listed in the unzip-k usage screen.
+
+=back
+
+
 =head1 EXAMPLES
 
 To use unzip to extract all members of the archive letters.zip into
@@ -366,6 +399,7 @@ unzip source.zip "*.[fch]" Makefile -d /tmp
 
 (the double quotes are necessary only in Unix and only if globbing is
 turned on).
+
 
 =head1 DEPENDENCIES
 
