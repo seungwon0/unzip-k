@@ -29,7 +29,7 @@ use Getopt::Long;
 use Text::Glob qw( match_glob );
 $Text::Glob::strict_wildcard_slash = 0;
 
-use File::Spec;
+use File::Spec::Functions qw (catfile);
 
 use POSIX qw( strftime );
 
@@ -38,8 +38,9 @@ my $exdir;
 my $crt;
 my $list;
 my $pipe;
+my $test;
 
-# TODO: Support -t and -z options
+# TODO: Support -z options
 # TODO: Support -C, -j, -n, -o, -q, -s and -W modifiers
 GetOptions(
     'x=s{,}' => \@xfiles,
@@ -47,6 +48,7 @@ GetOptions(
     'c'	     => \$crt,
     'l'      => \$list,
     'p'      => \$pipe,
+    't'      => \$test,
 );
 
 if (@ARGV < 1) {
@@ -67,6 +69,7 @@ for my $archive ($file, "$file.zip", "$file.ZIP") {
 			crt    => $crt,
 			list   => $list,
 			pipe   => $pipe,
+			test   => $test,
 		    })
 	and exit;
 }
@@ -77,10 +80,11 @@ sub print_usage {
     print <<'END_USAGE';
 UnZip-K 0.4 of 24 November 2010, by Seungwon Jeong.
 
-Usage: unzip-k file[.zip] [file(s) ...] [-x xfile(s) ...] [-d exdir]
+Usage: unzip-k [-clpt] file[.zip] [file(s) ...] [-x xfile(s) ...] [-d exdir]
   Default action is to extract files in list, except those in xlist, to exdir.
 
   -p  extract files to pipe, no messages     -l  list files
+  -t  test compressed archive data
   -x  exclude files that follow (in xlist)   -d  extract files into exdir
 Examples:
   unzip data1 -x joe   => extract all files except joe from zipfile data1.zip
@@ -97,6 +101,7 @@ sub extract_archive {
     my $crt	   = $arg_ref->{crt};
     my $list       = $arg_ref->{list};
     my $pipe       = $arg_ref->{pipe};
+    my $test       = $arg_ref->{test};
 
     if (!$pipe) {
 	print "Archive:  $archive_name\n";
@@ -114,13 +119,17 @@ sub extract_archive {
     my $total_length = 0;
     my $total_count  = 0;
 
-    if ($list) {
+    my $error;
+
+    if ($list || $test) {
 	# Print archive comment
 	my $archive_comment = $zip->zipfileComment();
 	if ($archive_comment ne q{}) {
 	    print $archive_comment, "\n";
 	}
+    }
 
+    if ($list) {
 	# Print list header
 	print "  Length      Date    Time    Name\n";
 	print "---------  ---------- -----   ----\n";
@@ -154,6 +163,8 @@ sub extract_archive {
 				       crt     => $crt,
 				       list    => $list,
 				       pipe    => $pipe,
+				       test    => $test,
+				       error   => \$error,
 				   });
 		}
 	    }
@@ -168,6 +179,8 @@ sub extract_archive {
 			       crt     => $crt,
 			       list    => $list,
 			       pipe    => $pipe,
+			       test    => $test,
+			       error   => \$error,
 			   });
 	}
     }
@@ -190,6 +203,23 @@ sub extract_archive {
 	print "caution: excluded filename not matched_files:  $xfile\n";
     }
 
+    if ($test) {
+	if ($error) {
+	    print "At least one error was detected in $archive_name.\n"
+	}
+	elsif ($total_count == 0) {
+	    print "Caution:  zero files tested in $archive_name.\n";
+	}
+	elsif (@{$files_ref} || @{$xfiles_ref}) {
+	    print "No errors detected in $archive_name"
+		. " for the $total_count files tested.\n"
+		;
+	}
+	else {
+	    print "No errors detected in compressed data of $archive_name.\n";
+	}
+    }
+
     return 1;
 }
 
@@ -200,11 +230,13 @@ sub extract_member {
     my $crt         = $arg_ref->{crt};
     my $list        = $arg_ref->{list};
     my $pipe        = $arg_ref->{pipe};
+    my $test        = $arg_ref->{test};
+    my $error_ref   = $arg_ref->{error};
 
     # Get file name to be extracted
     my $extracted_name = decode_name_of($member);
-    if (defined $exdir && $exdir ne q{}) {
-	$extracted_name = File::Spec->catfile($exdir, $extracted_name);
+    if (!$crt && !$list && !$pipe && defined $exdir && $exdir ne q{}) {
+	$extracted_name = catfile($exdir, $extracted_name);
     }
 
     # Check existing file or directory
@@ -239,7 +271,7 @@ sub extract_member {
 	}
     }
 
-    if (!$list && !$pipe) {
+    if (!$list && !$pipe && !$test) {
 	print_progress_using($member, $extracted_name);
     }
 
@@ -269,6 +301,21 @@ sub extract_member {
     }
     elsif ($pipe) {
 	$member->extractToFileHandle(*STDOUT);
+    }
+    elsif ($test) {
+	printf "    testing: %-22s", $extracted_name;
+
+	my $crc32 = $member->crc32();
+	my $computed_crc32 = Archive::Zip::computeCRC32($member->contents());
+	if ($crc32 == $computed_crc32) {
+	    print "   OK\n";
+	}
+	else {
+	    ${$error_ref} = 1;
+	    printf " bad CRC %08lx  (should be %08lx)\n",
+		   $crc32, $computed_crc32
+		   ;
+	}
     }
     else {
 	$member->extractToFileNamed($extracted_name) == AZ_OK
@@ -382,7 +429,7 @@ name encoded in Microsoft's CP949
 
 =head1 SYNOPSIS
 
-B<unzip-k> F<file>[F<.zip>] [F<file(s)>] [-x F<xfile(s)> ...] [-d F<exdir>]
+B<unzip-k> [B<-clpt>] F<file>[F<.zip>] [F<file(s)>] [-x F<xfile(s)> ...] [-d F<exdir>]
 
 
 =head1 DESCRIPTION
@@ -463,6 +510,13 @@ extract files to pipe (stdout).  Nothing but the file data is sent to
 stdout, and the files are always extracted in binary format, just as
 they are stored (no conversions).
 
+=item B<-t>
+
+test archive files.  This option extracts each specified file in
+memory and compares the CRC (cyclic redundancy check, an enhanced
+checksum) of the expanded file with the original file's stored CRC
+value.
+
 =back
 
 
@@ -495,7 +549,7 @@ turned on).
 
 =item C<Getopt::Long>
 
-=item C<File::Spec>
+=item C<File::Spec::Functions>
 
 =item C<POSIX>
 
