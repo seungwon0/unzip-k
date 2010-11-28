@@ -1,9 +1,9 @@
 #!/usr/bin/perl
 #
-# unzip-k - extract a ZIP archive containing file or directory name
-# encoded in Microsoft's CP949
+# unzip-k - list and extract a ZIP archive containing file or
+# directory name encoded in Microsoft's CP949
 #
-# unzip-k will extract compressed files from a ZIP archive containing
+# unzip-k will list or extract compressed files from a ZIP archive containing
 # file or directory name encoded in Microsoft's CP949.
 #
 # This program requires Archive::Zip and Text::Glob modules. In
@@ -37,14 +37,16 @@ my @xfiles;
 my $exdir;
 my $crt;
 my $list;
+my $pipe;
 
-# TODO: Support -p, -t and -z options
+# TODO: Support -t and -z options
 # TODO: Support -C, -j, -n, -o, -q, -s and -W modifiers
 GetOptions(
     'x=s{,}' => \@xfiles,
     'd=s'    => \$exdir,
     'c'	     => \$crt,
     'l'      => \$list,
+    'p'      => \$pipe,
 );
 
 if (@ARGV < 1) {
@@ -64,6 +66,7 @@ for my $archive ($file, "$file.zip", "$file.ZIP") {
 			exdir  => $exdir,
 			crt    => $crt,
 			list   => $list,
+			pipe   => $pipe,
 		    })
 	and exit;
 }
@@ -72,15 +75,16 @@ die "unzip-k:  cannot find or open $file, $file.zip or $file.ZIP.\n";
 
 sub print_usage {
     print <<'END_USAGE';
-UnZip-K 0.3 of 24 November 2010, by Seungwon Jeong.
+UnZip-K 0.4 of 24 November 2010, by Seungwon Jeong.
 
 Usage: unzip-k file[.zip] [file(s) ...] [-x xfile(s) ...] [-d exdir]
   Default action is to extract files in list, except those in xlist, to exdir.
 
-  -l  list files
+  -p  extract files to pipe, no messages     -l  list files
   -x  exclude files that follow (in xlist)   -d  extract files into exdir
 Examples:
   unzip data1 -x joe   => extract all files except joe from zipfile data1.zip
+  unzip -p foo | more  => send contents of foo.zip via pipe into program more
 END_USAGE
     return;
 }
@@ -92,8 +96,11 @@ sub extract_archive {
     my $exdir	   = $arg_ref->{exdir};
     my $crt	   = $arg_ref->{crt};
     my $list       = $arg_ref->{list};
+    my $pipe       = $arg_ref->{pipe};
 
-    print "Archive:  $archive_name\n";
+    if (!$pipe) {
+	print "Archive:  $archive_name\n";
+    }
 
     my $zip = Archive::Zip->new();
 
@@ -146,6 +153,7 @@ sub extract_archive {
 				       exdir   => $exdir,
 				       crt     => $crt,
 				       list    => $list,
+				       pipe    => $pipe,
 				   });
 		}
 	    }
@@ -159,6 +167,7 @@ sub extract_archive {
 			       exdir   => $exdir,
 			       crt     => $crt,
 			       list    => $list,
+			       pipe    => $pipe,
 			   });
 	}
     }
@@ -190,6 +199,7 @@ sub extract_member {
     my $exdir	    = $arg_ref->{exdir};
     my $crt         = $arg_ref->{crt};
     my $list        = $arg_ref->{list};
+    my $pipe        = $arg_ref->{pipe};
 
     # Get file name to be extracted
     my $extracted_name = decode_name_of($member);
@@ -199,7 +209,7 @@ sub extract_member {
 
     # Check existing file or directory
   CHECK:
-    while (!$crt && !$list && -e $extracted_name) {
+    while (!$crt && !$list && !$pipe && -e $extracted_name) {
 	return if defined ${$replace_ref} && ${$replace_ref} eq 'None';
 
 	return if -d $extracted_name && $member->isDirectory();
@@ -229,7 +239,7 @@ sub extract_member {
 	}
     }
 
-    if (!$list) {
+    if (!$list && !$pipe) {
 	print_progress_using($member, $extracted_name);
     }
 
@@ -256,6 +266,9 @@ sub extract_member {
 	if ($file_comment ne q{}) {
 	    print $file_comment, "\n";
 	}
+    }
+    elsif ($pipe) {
+	$member->extractToFileHandle(*STDOUT);
     }
     else {
 	$member->extractToFileNamed($extracted_name) == AZ_OK
@@ -363,8 +376,8 @@ __END__
 
 =head1 NAME
 
-unzip-k - extract a ZIP archive containing file or directory name
-encoded in Microsoft's CP949
+unzip-k - list and extract a ZIP archive containing file or directory
+name encoded in Microsoft's CP949
 
 
 =head1 SYNOPSIS
@@ -374,7 +387,7 @@ B<unzip-k> F<file>[F<.zip>] [F<file(s)>] [-x F<xfile(s)> ...] [-d F<exdir>]
 
 =head1 DESCRIPTION
 
-I<unzip-k> will extract compressed files from a ZIP archive containing
+I<unzip-k> will list or extract compressed files from a ZIP archive containing
 file or directory name encoded in Microsoft's CP949. The default
 behavior (with no options) is to extract into the current directory
 (and subdirectories below it) all files from the specified ZIP
@@ -443,6 +456,12 @@ list archive files.  The names, uncompressed file sizes and
 modification dates and times of the specified files are printed, along
 with totals for all files specified.  In addition, the zipfile comment
 and individual file comments (if any) are displayed.
+
+=item B<-p>
+
+extract files to pipe (stdout).  Nothing but the file data is sent to
+stdout, and the files are always extracted in binary format, just as
+they are stored (no conversions).
 
 =back
 
