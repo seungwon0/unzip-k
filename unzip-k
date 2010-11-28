@@ -1,10 +1,11 @@
 #!/usr/bin/perl
 #
-# unzip-k - list and extract a ZIP archive containing file or
+# unzip-k - list, test and extract a ZIP archive containing file or
 # directory name encoded in Microsoft's CP949
 #
-# unzip-k will list or extract compressed files from a ZIP archive containing
-# file or directory name encoded in Microsoft's CP949.
+# unzip-k will list, test or extract compressed files from a ZIP
+# archive containing file or directory name encoded in Microsoft's
+# CP949.
 #
 # This program requires Archive::Zip and Text::Glob modules. In
 # Ubuntu, you may need to install libarchive-zip-perl and
@@ -39,8 +40,8 @@ my $crt;
 my $list;
 my $pipe;
 my $test;
+my $comment;
 
-# TODO: Support -z options
 # TODO: Support -C, -j, -n, -o, -q, -s and -W modifiers
 GetOptions(
     'x=s{,}' => \@xfiles,
@@ -49,6 +50,7 @@ GetOptions(
     'l'      => \$list,
     'p'      => \$pipe,
     't'      => \$test,
+    'z'      => \$comment,
 );
 
 if (@ARGV < 1) {
@@ -63,13 +65,14 @@ for my $archive ($file, "$file.zip", "$file.ZIP") {
     next ARCHIVE if ! -f $archive;
     extract_archive($archive,
 		    {
-			files  => \@files,
-			xfiles => \@xfiles,
-			exdir  => $exdir,
-			crt    => $crt,
-			list   => $list,
-			pipe   => $pipe,
-			test   => $test,
+			files	=> \@files,
+			xfiles	=> \@xfiles,
+			exdir	=> $exdir,
+			crt	=> $crt,
+			list	=> $list,
+			pipe	=> $pipe,
+			test	=> $test,
+			comment => $comment,
 		    })
 	and exit;
 }
@@ -80,11 +83,11 @@ sub print_usage {
     print <<'END_USAGE';
 UnZip-K 0.4 of 24 November 2010, by Seungwon Jeong.
 
-Usage: unzip-k [-clpt] file[.zip] [file(s) ...] [-x xfile(s) ...] [-d exdir]
+Usage: unzip-k [-clptz] file[.zip] [file(s) ...] [-x xfile(s) ...] [-d exdir]
   Default action is to extract files in list, except those in xlist, to exdir.
 
   -p  extract files to pipe, no messages     -l  list files
-  -t  test compressed archive data
+  -t  test compressed archive data           -z  display archive comment only
   -x  exclude files that follow (in xlist)   -d  extract files into exdir
 Examples:
   unzip data1 -x joe   => extract all files except joe from zipfile data1.zip
@@ -102,6 +105,7 @@ sub extract_archive {
     my $list       = $arg_ref->{list};
     my $pipe       = $arg_ref->{pipe};
     my $test       = $arg_ref->{test};
+    my $comment    = $arg_ref->{comment};
 
     if (!$pipe) {
 	print "Archive:  $archive_name\n";
@@ -121,13 +125,15 @@ sub extract_archive {
 
     my $error;
 
-    if ($list || $test) {
+    if ($list || $test || $comment) {
 	# Print archive comment
 	my $archive_comment = $zip->zipfileComment();
 	if ($archive_comment ne q{}) {
 	    print $archive_comment, "\n";
 	}
     }
+
+    return 1 if $comment;
 
     if ($list) {
 	# Print list header
@@ -423,25 +429,25 @@ __END__
 
 =head1 NAME
 
-unzip-k - list and extract a ZIP archive containing file or directory
-name encoded in Microsoft's CP949
+unzip-k - list, test and extract a ZIP archive containing file or
+directory name encoded in Microsoft's CP949
 
 
 =head1 SYNOPSIS
 
-B<unzip-k> [B<-clpt>] F<file>[F<.zip>] [F<file(s)>] [-x F<xfile(s)> ...] [-d F<exdir>]
+B<unzip-k> [B<-clptz>] F<file>[F<.zip>] [F<file(s)>] [-x F<xfile(s)> ...] [-d F<exdir>]
 
 
 =head1 DESCRIPTION
 
-I<unzip-k> will list or extract compressed files from a ZIP archive containing
-file or directory name encoded in Microsoft's CP949. The default
-behavior (with no options) is to extract into the current directory
-(and subdirectories below it) all files from the specified ZIP
-archive.  A companion program, zip(1), creates ZIP archives; both
-programs are compatible with archives created by PKWARE's PKZIP and
-PKUNZIP for MS-DOS, but in many cases the program options or default
-behaviors differ.
+I<unzip-k> will list, test or extract compressed files from a ZIP
+archive containing file or directory name encoded in Microsoft's
+CP949. The default behavior (with no options) is to extract into the
+current directory (and subdirectories below it) all files from the
+specified ZIP archive.  A companion program, zip(1), creates ZIP
+archives; both programs are compatible with archives created by
+PKWARE's PKZIP and PKUNZIP for MS-DOS, but in many cases the program
+options or default behaviors differ.
 
 
 =head1 ARGUMENTS
@@ -516,6 +522,10 @@ test archive files.  This option extracts each specified file in
 memory and compares the CRC (cyclic redundancy check, an enhanced
 checksum) of the expanded file with the original file's stored CRC
 value.
+
+=item B<-z>
+
+display only the archive comment.
 
 =back
 
