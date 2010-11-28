@@ -35,6 +35,13 @@ use File::Spec::Functions qw ( catfile splitpath );
 use POSIX qw( strftime );
 
 my @xfiles;
+
+Getopt::Long::Configure("pass_through");
+if (!GetOptions('x=s{1,}' => \@xfiles)) {
+    print_usage();
+    exit 1;
+}
+
 my $exdir;
 my $crt;
 my $list;
@@ -44,22 +51,29 @@ my $comment_only;
 my $case_insensitive;
 my $junk_paths;
 my $never_overwrite;
+my $overwrite;
+my $quiet;
 
-# TODO: Support -o, -q, -s and -W modifiers
-GetOptions(
+Getopt::Long::Configure("no_pass_through", "bundling");
+# TODO: Support -s and -W modifiers
+if (!GetOptions(
+    'd=s' => \$exdir,
     # Options
-    'x=s{,}' => \@xfiles,
-    'd=s'    => \$exdir,
-    'c'              => \$crt,
-    'l'      => \$list,
-    'p'      => \$pipe,
-    't'      => \$test,
-    'z'      => \$comment_only,
+    'c'	  => \$crt,
+    'l'	  => \$list,
+    'p'	  => \$pipe,
+    't'	  => \$test,
+    'z'	  => \$comment_only,
     # Modifiers
-    'C'      => \$case_insensitive,
-    'j'      => \$junk_paths,
-    'n'      => \$never_overwrite,
-);
+    'C'	  => \$case_insensitive,
+    'j'	  => \$junk_paths,
+    'n'	  => \$never_overwrite,
+    'o'	  => \$overwrite,
+    'q'	  => \$quiet,
+)) {
+    print_usage();
+    exit 1;
+}
 
 if (@ARGV < 1) {
     print_usage();
@@ -84,6 +98,8 @@ for my $archive ($file, "$file.zip", "$file.ZIP") {
 			case_insensitive => $case_insensitive,
 			junk_paths       => $junk_paths,
 			never_overwrite  => $never_overwrite,
+			overwrite        => $overwrite,
+			quiet            => $quiet,
 		    })
 	and exit;
 }
@@ -101,7 +117,8 @@ Usage: unzip-k [-opts[modifiers]] file[.zip] [list] [-x xlist] [-d exdir]
   -t  test compressed archive data           -z  display archive comment only
   -x  exclude files that follow (in xlist)   -d  extract files into exdir
 modifiers:
-  -n  never overwrite existing files
+  -n  never overwrite existing files         -q  quiet mode
+  -o  overwrite files WITHOUT prompting
   -j  junk paths (do not make directories)
   -C  match filenames case-insensitively
 Examples:
@@ -124,8 +141,10 @@ sub extract_archive {
     my $case_insensitive = $arg_ref->{case_insensitive};
     my $junk_paths       = $arg_ref->{junk_paths};
     my $never_overwrite  = $arg_ref->{never_overwrite};
+    my $overwrite        = $arg_ref->{overwrite};
+    my $quiet            = $arg_ref->{quiet};
 
-    if (!$pipe) {
+    if (!$pipe && !$quiet) {
 	print "Archive:  $archive_name\n";
     }
 
@@ -140,13 +159,16 @@ sub extract_archive {
     if ($never_overwrite) {
 	$replace = 'None';
     }
+    elsif ($overwrite) {
+	$replace = 'All';
+    }
 
     my $total_length = 0;
     my $total_count  = 0;
 
     my $error_in_archive;
 
-    if ($list || $test || $comment_only) {
+    if (($list || $test || $comment_only) && !$quiet) {
 	# Print archive comment
 	my $archive_comment = $zip->zipfileComment();
 	if ($archive_comment ne q{}) {
@@ -287,7 +309,7 @@ sub extract_member {
 
     # Check existing file or directory
   CHECK:
-    while (!$crt && !$list && !$pipe && -e $extracted_name) {
+    while (!$crt && !$list && !$pipe && !$test && -e $extracted_name) {
 	return if defined ${$replace_ref} && ${$replace_ref} eq 'None';
 
 	return if -d $extracted_name && $member->isDirectory();
@@ -317,7 +339,7 @@ sub extract_member {
 	}
     }
 
-    if (!$list && !$pipe && !$test) {
+    if (!$list && !$pipe && !$test && !$quiet) {
 	print_progress_using($member, $extracted_name);
     }
 
@@ -339,32 +361,40 @@ sub extract_member {
 	       $extracted_name
 	       ;
 
-	# Print individual file comment
-	my $file_comment = $member->fileComment();
-	if ($file_comment ne q{}) {
-	    print $file_comment, "\n";
+	if (!$quiet) {
+	    # Print individual file comment
+	    my $file_comment = $member->fileComment();
+	    if ($file_comment ne q{}) {
+		print $file_comment, "\n";
+	    }
 	}
     }
     elsif ($pipe) {
 	$member->extractToFileHandle(*STDOUT);
     }
     elsif ($test) {
-	printf "    testing: %-22s", $extracted_name;
-	my $diff = length($extracted_name) - length($member->fileName());
-	if ($diff > 0) {
-	    print q{ } x $diff;
+	if (!$quiet) {
+	    printf "    testing: %-22s", $extracted_name;
+	    my $diff = length($extracted_name) - length($member->fileName());
+	    if ($diff > 0) {
+		print q{ } x $diff;
+	    }
 	}
 
 	my $crc32 = $member->crc32();
 	my $computed_crc32 = Archive::Zip::computeCRC32($member->contents());
 	if ($crc32 == $computed_crc32) {
-	    print "   OK\n";
+	    if (!$quiet) {
+		print "   OK\n";
+	    }
 	}
 	else {
 	    ${$error_ref} = 1;
-	    printf " bad CRC %08lx  (should be %08lx)\n",
-		   $crc32, $computed_crc32
-		   ;
+	    if (!$quiet) {
+		printf " bad CRC %08lx  (should be %08lx)\n",
+		       $crc32, $computed_crc32
+		       ;
+	    }
 	}
     }
     else {
@@ -479,7 +509,7 @@ directory name encoded in Microsoft's CP949
 
 =head1 SYNOPSIS
 
-B<unzip-k> [B<-clptz>[B<jnC>]] F<file>[F<.zip>] [F<file(s)>] [-x F<xfile(s)> ...] [-d F<exdir>]
+B<unzip-k> [B<-clptz>[B<jnoqC>]] F<file>[F<.zip>] [F<file(s)>] [-x F<xfile(s)> ...] [-d F<exdir>]
 
 
 =head1 DESCRIPTION
@@ -617,6 +647,19 @@ before extracting any file that already exists; the user may choose to
 overwrite only the current file, overwrite all files, skip extraction
 of the current file, skip extraction of all existing files, or rename
 the current file.
+
+=item B<-o>
+
+overwrite existing files without prompting.  This is a dangerous
+option, so use it with care.
+
+=item B<-q>
+
+perform operations quietly.  Ordinarily unzip prints the names of the
+files it's extracting or testing, the extraction methods, any file or
+zipfile comments that may be stored in the archive, and possibly a
+summary when finished with each archive.  The -q options suppress
+the printing of some or all of these messages.
 
 =back
 
