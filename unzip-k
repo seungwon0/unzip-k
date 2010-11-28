@@ -28,7 +28,6 @@ use Encode;
 use Getopt::Long;
 
 use Text::Glob qw( match_glob );
-$Text::Glob::strict_wildcard_slash = 0;
 
 use File::Spec::Functions qw ( catfile splitpath );
 
@@ -53,9 +52,9 @@ my $junk_paths;
 my $never_overwrite;
 my $overwrite;
 my $quiet;
+my $strict_wildcard_slash;
 
 Getopt::Long::Configure("no_pass_through", "bundling");
-# TODO: Support -s and -W modifiers
 if (!GetOptions(
     'd=s' => \$exdir,
     # Options
@@ -70,9 +69,14 @@ if (!GetOptions(
     'n'	  => \$never_overwrite,
     'o'	  => \$overwrite,
     'q'	  => \$quiet,
+    'W'   => \$strict_wildcard_slash,
 )) {
     print_usage();
     exit 1;
+}
+
+if (!$strict_wildcard_slash) {
+    $Text::Glob::strict_wildcard_slash = 0;
 }
 
 if (@ARGV < 1) {
@@ -217,13 +221,13 @@ sub extract_archive {
 		    $total_count++;
 		    extract_member($member,
 				   {
-				       replace    => \$replace,
-				       exdir      => $exdir,
-				       crt        => $crt,
-				       list       => $list,
-				       pipe       => $pipe,
-				       test       => $test,
-				       error      => \$error_in_archive,
+				       replace	  => \$replace,
+				       exdir	  => $exdir,
+				       crt	  => $crt,
+				       list	  => $list,
+				       pipe	  => $pipe,
+				       test	  => $test,
+				       error	  => \$error_in_archive,
 				       junk_paths => $junk_paths,
 				   });
 		}
@@ -234,13 +238,13 @@ sub extract_archive {
 	    $total_count++;
 	    extract_member($member,
 			   {
-			       replace => \$replace,
-			       exdir   => $exdir,
-			       crt     => $crt,
-			       list    => $list,
-			       pipe    => $pipe,
-			       test    => $test,
-			       error   => \$error_in_archive,
+			       replace	  => \$replace,
+			       exdir	  => $exdir,
+			       crt	  => $crt,
+			       list	  => $list,
+			       pipe	  => $pipe,
+			       test	  => $test,
+			       error	  => \$error_in_archive,
 			       junk_paths => $junk_paths,
 			   });
 	}
@@ -287,11 +291,11 @@ sub extract_archive {
 sub extract_member {
     my ($member, $arg_ref) = @_;
     my $replace_ref = $arg_ref->{replace};
-    my $exdir       = $arg_ref->{exdir};
-    my $crt         = $arg_ref->{crt};
-    my $list        = $arg_ref->{list};
-    my $pipe        = $arg_ref->{pipe};
-    my $test        = $arg_ref->{test};
+    my $exdir	    = $arg_ref->{exdir};
+    my $crt	    = $arg_ref->{crt};
+    my $list	    = $arg_ref->{list};
+    my $pipe	    = $arg_ref->{pipe};
+    my $test	    = $arg_ref->{test};
     my $error_ref   = $arg_ref->{error};
     my $junk_paths  = $arg_ref->{junk_paths};
 
@@ -302,6 +306,7 @@ sub extract_member {
 	    # Remove directory portion
 	    $extracted_name = (splitpath($extracted_name))[2];
 	}
+
 	if (defined $exdir && $exdir ne q{}) {
 	    $extracted_name = catfile($exdir, $extracted_name);
 	}
@@ -509,7 +514,7 @@ directory name encoded in Microsoft's CP949
 
 =head1 SYNOPSIS
 
-B<unzip-k> [B<-clptz>[B<jnoqC>]] F<file>[F<.zip>] [F<file(s)>] [-x F<xfile(s)> ...] [-d F<exdir>]
+B<unzip-k> [B<-clptz>[B<jnoqCW>]] F<file>[F<.zip>] [F<file(s)>] [-x F<xfile(s)> ...] [-d F<exdir>]
 
 
 =head1 DESCRIPTION
@@ -542,12 +547,13 @@ expanded or modified by the operating system.
 =item [-x F<file(s)>]
 
 An optional list of archive members to be excluded from processing.
-Since wildcard characters normally match (`/') directory separators,
-this option may be used to exclude any files that are in
-subdirectories.  For example, ``unzip-k foo *.[ch] -x */*'' would
-extract all C source files in the main directory, but none in any
-subdirectories.  Without the -x option, all C source files in all
-directories within the zipfile would be extracted.
+Since wildcard characters normally match (`/') directory separators
+(for exceptions see the option -W), this option may be used to exclude
+any files that are in subdirectories.  For example, ``unzip-k foo
+*.[ch] -x */*'' would extract all C source files in the main
+directory, but none in any subdirectories.  Without the -x option, all
+C source files in all directories within the zipfile would be
+extracted.
 
 =item [-d F<exdir>]
 
@@ -642,7 +648,7 @@ current one).
 =item B<-n>
 
 never overwrite existing files.  If a file already exists, skip the
-extraction of that file without prompting.  By default unzip queries
+extraction of that file without prompting.  By default unzip-k queries
 before extracting any file that already exists; the user may choose to
 overwrite only the current file, overwrite all files, skip extraction
 of the current file, skip extraction of all existing files, or rename
@@ -655,26 +661,42 @@ option, so use it with care.
 
 =item B<-q>
 
-perform operations quietly.  Ordinarily unzip prints the names of the
-files it's extracting or testing, the extraction methods, any file or
-zipfile comments that may be stored in the archive, and possibly a
-summary when finished with each archive.  The -q options suppress
-the printing of some or all of these messages.
+perform operations quietly.  Ordinarily unzip-k prints the names of
+the files it's extracting or testing, the extraction methods, any file
+or zipfile comments that may be stored in the archive, and possibly a
+summary when finished with each archive.  The -q options suppress the
+printing of some or all of these messages.
+
+=item B<-W>
+
+modifies the pattern matching routine so that both `?' (single-char
+wildcard) and `*' (multi-char wildcard) do not match the directory
+separator character `/'.  Examples:
+
+"*.c" matches "foo.c" but not "mydir/foo.c"
+"*/*.c" matches "bar/foo.c" but not "baz/bar/foo.c"
+"??*/*" matches "ab/foo" and "abc/foo" but not "a/foo" or "a/b/foo"
 
 =back
 
 
 =head1 EXAMPLES
 
-To use unzip-k to extract all members of the archive letters.zip into
-the current directory and subdirectories below it, creating any
+To use unzip-k to extract all members of the archive F<letters.zip>
+into the current directory and subdirectories below it, creating any
 subdirectories as necessary:
 
 unzip-k letters
 
-To extract all members of letters.zip into the current directory only:
+To extract all members of F<letters.zip> into the current directory
+only:
 
 unzip-k -j letters
+
+To test F<letters.zip>, printing only a summary message indicating
+whether the archive is OK or not:
+
+unzip-k -tq letters
 
 To extract the binary file paper1.dvi to standard output and pipe it
 to a printing program:
