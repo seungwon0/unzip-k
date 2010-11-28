@@ -30,7 +30,7 @@ use Getopt::Long;
 use Text::Glob qw( match_glob );
 $Text::Glob::strict_wildcard_slash = 0;
 
-use File::Spec::Functions qw ( catfile );
+use File::Spec::Functions qw ( catfile splitpath );
 
 use POSIX qw( strftime );
 
@@ -42,19 +42,21 @@ my $pipe;
 my $test;
 my $comment_only;
 my $case_insensitive;
+my $junk_paths;
 
-# TODO: Support -j, -n, -o, -q, -s and -W modifiers
+# TODO: Support -n, -o, -q, -s and -W modifiers
 GetOptions(
     # Options
     'x=s{,}' => \@xfiles,
     'd=s'    => \$exdir,
-    'c'	     => \$crt,
+    'c'              => \$crt,
     'l'      => \$list,
     'p'      => \$pipe,
     't'      => \$test,
     'z'      => \$comment_only,
     # Modifiers
     'C'      => \$case_insensitive,
+    'j'      => \$junk_paths,
 );
 
 if (@ARGV < 1) {
@@ -69,15 +71,16 @@ for my $archive ($file, "$file.zip", "$file.ZIP") {
     next ARCHIVE if ! -f $archive;
     extract_archive($archive,
 		    {
-			files		 => \@files,
-			xfiles		 => \@xfiles,
-			exdir		 => $exdir,
-			crt		 => $crt,
-			list		 => $list,
-			pipe		 => $pipe,
-			test		 => $test,
-			comment_only	 => $comment_only,
+			files            => \@files,
+			xfiles           => \@xfiles,
+			exdir            => $exdir,
+			crt              => $crt,
+			list             => $list,
+			pipe             => $pipe,
+			test             => $test,
+			comment_only     => $comment_only,
 			case_insensitive => $case_insensitive,
+			junk_paths       => $junk_paths,
 		    })
 	and exit;
 }
@@ -95,6 +98,7 @@ Usage: unzip-k [-opts[modifiers]] file[.zip] [list] [-x xlist] [-d exdir]
   -t  test compressed archive data           -z  display archive comment only
   -x  exclude files that follow (in xlist)   -d  extract files into exdir
 modifiers:
+  -j  junk paths (do not make directories)
   -C  match filenames case-insensitively
 Examples:
   unzip-k data1 -x joe   => extract all files except joe from zipfile data1.zip
@@ -105,15 +109,16 @@ END_USAGE
 
 sub extract_archive {
     my ($archive_name, $arg_ref) = @_;
-    my $files_ref	 = $arg_ref->{files};
-    my $xfiles_ref	 = $arg_ref->{xfiles};
-    my $exdir		 = $arg_ref->{exdir};
-    my $crt		 = $arg_ref->{crt};
-    my $list		 = $arg_ref->{list};
-    my $pipe		 = $arg_ref->{pipe};
-    my $test		 = $arg_ref->{test};
-    my $comment_only	 = $arg_ref->{comment_only};
+    my $files_ref        = $arg_ref->{files};
+    my $xfiles_ref       = $arg_ref->{xfiles};
+    my $exdir            = $arg_ref->{exdir};
+    my $crt              = $arg_ref->{crt};
+    my $list             = $arg_ref->{list};
+    my $pipe             = $arg_ref->{pipe};
+    my $test             = $arg_ref->{test};
+    my $comment_only     = $arg_ref->{comment_only};
     my $case_insensitive = $arg_ref->{case_insensitive};
+    my $junk_paths       = $arg_ref->{junk_paths};
 
     if (!$pipe) {
 	print "Archive:  $archive_name\n";
@@ -153,6 +158,12 @@ sub extract_archive {
     for my $member ($zip->members()) {
 	my $member_name = decode_name_of($member);
 
+	if ($junk_paths) {
+	    if ($member->isDirectory()) {
+		next MEMBER;
+	    }
+	}
+
 	# Check archive members to be excluded from processing
 	if (@{$xfiles_ref}) {
 	    for my $xfile (@{$xfiles_ref}) {
@@ -176,13 +187,14 @@ sub extract_archive {
 		    $total_count++;
 		    extract_member($member,
 				   {
-				       replace => \$replace,
-				       exdir   => $exdir,
-				       crt     => $crt,
-				       list    => $list,
-				       pipe    => $pipe,
-				       test    => $test,
-				       error   => \$error_in_archive,
+				       replace    => \$replace,
+				       exdir      => $exdir,
+				       crt        => $crt,
+				       list       => $list,
+				       pipe       => $pipe,
+				       test       => $test,
+				       error      => \$error_in_archive,
+				       junk_paths => $junk_paths,
 				   });
 		}
 	    }
@@ -199,6 +211,7 @@ sub extract_archive {
 			       pipe    => $pipe,
 			       test    => $test,
 			       error   => \$error_in_archive,
+			       junk_paths => $junk_paths,
 			   });
 	}
     }
@@ -244,18 +257,24 @@ sub extract_archive {
 sub extract_member {
     my ($member, $arg_ref) = @_;
     my $replace_ref = $arg_ref->{replace};
-    my $exdir	    = $arg_ref->{exdir};
+    my $exdir       = $arg_ref->{exdir};
     my $crt         = $arg_ref->{crt};
     my $list        = $arg_ref->{list};
     my $pipe        = $arg_ref->{pipe};
     my $test        = $arg_ref->{test};
     my $error_ref   = $arg_ref->{error};
+    my $junk_paths  = $arg_ref->{junk_paths};
 
     # Get file name to be extracted
     my $extracted_name = decode_name_of($member);
-    if (!$crt && !$list && !$pipe && !$test
-	    && defined $exdir && $exdir ne q{}) {
-	$extracted_name = catfile($exdir, $extracted_name);
+    if (!$crt && !$list && !$pipe && !$test) {
+	if ($junk_paths) {
+	    # Remove directory portion
+	    $extracted_name = (splitpath($extracted_name))[2];
+	}
+	if (defined $exdir && $exdir ne q{}) {
+	    $extracted_name = catfile($exdir, $extracted_name);
+	}
     }
 
     # Check existing file or directory
@@ -452,7 +471,7 @@ directory name encoded in Microsoft's CP949
 
 =head1 SYNOPSIS
 
-B<unzip-k> [B<-clptz>[B<C>]] F<file>[F<.zip>] [F<file(s)>] [-x F<xfile(s)> ...] [-d F<exdir>]
+B<unzip-k> [B<-clptz>[B<jC>]] F<file>[F<.zip>] [F<file(s)>] [-x F<xfile(s)> ...] [-d F<exdir>]
 
 
 =head1 DESCRIPTION
@@ -576,6 +595,12 @@ the extraction path.  On a case-sensitive file system, unzip-k will
 never try to overwrite a file ``FOO'' when extracting an entry
 ``foo''!
 
+=item B<-j>
+
+junk paths.  The archive's directory structure is not recreated; all
+files are deposited in the extraction directory (by default, the
+current one).
+
 =back
 
 
@@ -586,6 +611,10 @@ the current directory and subdirectories below it, creating any
 subdirectories as necessary:
 
 unzip-k letters
+
+To extract all members of letters.zip into the current directory only:
+
+unzip-k -j letters
 
 To extract the binary file paper1.dvi to standard output and pipe it
 to a printing program:
