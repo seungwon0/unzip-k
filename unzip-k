@@ -172,7 +172,7 @@ sub extract_archive {
 
     my $error_in_archive;
 
-    if (($list || $test || $comment_only) && !$quiet) {
+    if (($crt || $list || $test || $comment_only) && !$quiet) {
         # Print archive comment
         my $archive_comment = $zip->zipfileComment();
         if ($archive_comment ne q{}) {
@@ -349,10 +349,12 @@ sub extract_member {
     }
 
     if ($crt) {
-        # FIXME
         my ($contents, $status) = $member->contents();
         if ($status == AZ_OK) {
-            print $contents, "\n";
+	    $member->extractToFileHandle(*STDOUT);
+	    if (!$quiet) {
+		print "\n";
+	    }
         }
         else {
             warn "extract error!\n";
@@ -376,7 +378,6 @@ sub extract_member {
         }
     }
     elsif ($pipe) {
-        # FIXME
         $member->extractToFileHandle(*STDOUT);
     }
     elsif ($test) {
