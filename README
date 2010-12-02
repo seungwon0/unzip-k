@@ -8,6 +8,19 @@ You can use this program to list, test or extract compressed files
 from a ZIP archive.
 
 
+INSTALL
+=======
+
+	$ make
+	$ sudo make install
+
+
+UNINSTLALL
+==========
+
+	$ sudo make uninstall
+
+
 URL
 ===
 
