@@ -35,7 +35,7 @@ use POSIX qw( strftime );
 
 my @xfiles;
 
-Getopt::Long::Configure("pass_through");
+Getopt::Long::Configure('pass_through');
 if (!GetOptions('x=s{1,}' => \@xfiles)) {
     print_usage();
     exit 1;
@@ -54,7 +54,7 @@ my $overwrite;
 my $quiet;
 my $strict_wildcard_slash;
 
-Getopt::Long::Configure("no_pass_through", "bundling");
+Getopt::Long::Configure('no_pass_through', 'bundling');
 if (!GetOptions(
     'd=s' => \$exdir,
     # Options
@@ -112,7 +112,7 @@ die "unzip-k:  cannot find or open $file, $file.zip or $file.ZIP.\n";
 
 sub print_usage {
     print <<'END_USAGE';
-UnZip-K 0.5 of 24 November 2010, by Seungwon Jeong.
+UnZip-K 0.6 of 3 December 2010, by Seungwon Jeong.
 
 Usage: unzip-k [-opts[modifiers]] file[.zip] [list] [-x xlist] [-d exdir]
   Default action is to extract files in list, except those in xlist, to exdir.
@@ -156,8 +156,8 @@ sub extract_archive {
 
     $zip->read($archive_name) == AZ_OK or return;
 
-    my %file_is_matched;
-    my %xfile_is_matched;
+    my %matched_file;
+    my %matched_xfile;
 
     my $replace;
     if ($never_overwrite) {
@@ -204,7 +204,7 @@ sub extract_archive {
                 if (match_glob($xfile, $member_name)
                         || ($case_insensitive
                                 && match_glob(lc $xfile, lc $member_name))) {
-                    $xfile_is_matched{$xfile} = 1;
+                    $matched_xfile{$xfile} = 1;
                     next MEMBER;
                 }
             }
@@ -216,7 +216,7 @@ sub extract_archive {
                 if (match_glob($file, $member_name)
                         || ($case_insensitive
                                 && match_glob(lc $file, lc $member_name))) {
-                    $file_is_matched{$file} = 1;
+                    $matched_file{$file} = 1;
                     $total_length += $member->uncompressedSize();
                     $total_count++;
                     extract_member($member,
@@ -261,10 +261,10 @@ sub extract_archive {
     }
 
     # print caution about unmatched filenames
-    for my $file (grep { ! $file_is_matched{$_} } @{$files_ref}) {
+    for my $file (grep { ! $matched_file{$_} } @{$files_ref}) {
         print "caution: filename not matched_files:  $file\n";
     }
-    for my $xfile (grep { ! $xfile_is_matched{$_} } @{$xfiles_ref}) {
+    for my $xfile (grep { ! $matched_xfile{$_} } @{$xfiles_ref}) {
         print "caution: excluded filename not matched_files:  $xfile\n";
     }
 
