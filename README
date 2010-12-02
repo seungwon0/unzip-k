@@ -1,0 +1,20 @@
+UnZip-K
+=======
+
+UnZip-K is an extraction utility for a zip archive containing file or
+direcotry name encoded in Microsoft's CP949.
+
+You can use this program to list, test or extract compressed files
+from a ZIP archive.
+
+
+URL
+===
+
+https://github.com/seungwon0/unzip-k
+
+
+Author
+======
+
+Seungwon jeong <seungwon0@gmail.com>
