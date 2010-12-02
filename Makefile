@@ -2,7 +2,7 @@
 #
 # Seungwon Jeong <seungwon0@gmail.com>
 #
-# Copyright (C) 2010 by Seungwon jeong
+# Copyright (C) 2010 by Seungwon Jeong
 
 SHELL := /bin/sh
 
