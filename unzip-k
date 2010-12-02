@@ -58,17 +58,17 @@ Getopt::Long::Configure("no_pass_through", "bundling");
 if (!GetOptions(
     'd=s' => \$exdir,
     # Options
-    'c'	  => \$crt,
-    'l'	  => \$list,
-    'p'	  => \$pipe,
-    't'	  => \$test,
-    'z'	  => \$comment_only,
+    'c'   => \$crt,
+    'l'   => \$list,
+    'p'   => \$pipe,
+    't'   => \$test,
+    'z'   => \$comment_only,
     # Modifiers
-    'C'	  => \$case_insensitive,
-    'j'	  => \$junk_paths,
-    'n'	  => \$never_overwrite,
-    'o'	  => \$overwrite,
-    'q'	  => \$quiet,
+    'C'   => \$case_insensitive,
+    'j'   => \$junk_paths,
+    'n'   => \$never_overwrite,
+    'o'   => \$overwrite,
+    'q'   => \$quiet,
     'W'   => \$strict_wildcard_slash,
 )) {
     print_usage();
@@ -90,22 +90,22 @@ ARCHIVE:
 for my $archive ($file, "$file.zip", "$file.ZIP") {
     next ARCHIVE if ! -f $archive;
     extract_archive($archive,
-		    {
-			files            => \@files,
-			xfiles           => \@xfiles,
-			exdir            => $exdir,
-			crt              => $crt,
-			list             => $list,
-			pipe             => $pipe,
-			test             => $test,
-			comment_only     => $comment_only,
-			case_insensitive => $case_insensitive,
-			junk_paths       => $junk_paths,
-			never_overwrite  => $never_overwrite,
-			overwrite        => $overwrite,
-			quiet            => $quiet,
-		    })
-	and exit;
+                    {
+                        files            => \@files,
+                        xfiles           => \@xfiles,
+                        exdir            => $exdir,
+                        crt              => $crt,
+                        list             => $list,
+                        pipe             => $pipe,
+                        test             => $test,
+                        comment_only     => $comment_only,
+                        case_insensitive => $case_insensitive,
+                        junk_paths       => $junk_paths,
+                        never_overwrite  => $never_overwrite,
+                        overwrite        => $overwrite,
+                        quiet            => $quiet,
+                    })
+        and exit;
 }
 
 die "unzip-k:  cannot find or open $file, $file.zip or $file.ZIP.\n";
@@ -149,7 +149,7 @@ sub extract_archive {
     my $quiet            = $arg_ref->{quiet};
 
     if (!$pipe && !$quiet) {
-	print "Archive:  $archive_name\n";
+        print "Archive:  $archive_name\n";
     }
 
     my $zip = Archive::Zip->new();
@@ -161,10 +161,10 @@ sub extract_archive {
 
     my $replace;
     if ($never_overwrite) {
-	$replace = 'None';
+        $replace = 'None';
     }
     elsif ($overwrite) {
-	$replace = 'All';
+        $replace = 'All';
     }
 
     my $total_length = 0;
@@ -173,116 +173,116 @@ sub extract_archive {
     my $error_in_archive;
 
     if (($list || $test || $comment_only) && !$quiet) {
-	# Print archive comment
-	my $archive_comment = $zip->zipfileComment();
-	if ($archive_comment ne q{}) {
-	    print $archive_comment, "\n";
-	}
+        # Print archive comment
+        my $archive_comment = $zip->zipfileComment();
+        if ($archive_comment ne q{}) {
+            print $archive_comment, "\n";
+        }
     }
 
     return 1 if $comment_only;
 
     if ($list) {
-	# Print list header
-	print "  Length      Date    Time    Name\n";
-	print "---------  ---------- -----   ----\n";
+        # Print list header
+        print "  Length      Date    Time    Name\n";
+        print "---------  ---------- -----   ----\n";
     }
 
   MEMBER:
     for my $member ($zip->members()) {
-	my $member_name = decode_name_of($member);
+        my $member_name = decode_name_of($member);
 
-	if ($junk_paths) {
-	    if ($member->isDirectory()) {
-		next MEMBER;
-	    }
-	}
+        if ($junk_paths) {
+            if ($member->isDirectory()) {
+                next MEMBER;
+            }
+        }
 
-	# Check archive members to be excluded from processing
-	if (@{$xfiles_ref}) {
-	    for my $xfile (@{$xfiles_ref}) {
-		if (match_glob($xfile, $member_name)
-			|| ($case_insensitive
-				&& match_glob(lc $xfile, lc $member_name))) {
-		    $xfile_is_matched{$xfile} = 1;
-		    next MEMBER;
-		}
-	    }
-	}
+        # Check archive members to be excluded from processing
+        if (@{$xfiles_ref}) {
+            for my $xfile (@{$xfiles_ref}) {
+                if (match_glob($xfile, $member_name)
+                        || ($case_insensitive
+                                && match_glob(lc $xfile, lc $member_name))) {
+                    $xfile_is_matched{$xfile} = 1;
+                    next MEMBER;
+                }
+            }
+        }
 
-	if (@{$files_ref}) {
-	    # Check archive members to be processed
-	    for my $file (@{$files_ref}) {
-		if (match_glob($file, $member_name)
-			|| ($case_insensitive
-				&& match_glob(lc $file, lc $member_name))) {
-		    $file_is_matched{$file} = 1;
-		    $total_length += $member->uncompressedSize();
-		    $total_count++;
-		    extract_member($member,
-				   {
-				       replace	  => \$replace,
-				       exdir	  => $exdir,
-				       crt	  => $crt,
-				       list	  => $list,
-				       pipe	  => $pipe,
-				       test	  => $test,
-				       error	  => \$error_in_archive,
-				       junk_paths => $junk_paths,
-				   });
-		}
-	    }
-	}
-	else {
-	    $total_length += $member->uncompressedSize();
-	    $total_count++;
-	    extract_member($member,
-			   {
-			       replace	  => \$replace,
-			       exdir	  => $exdir,
-			       crt	  => $crt,
-			       list	  => $list,
-			       pipe	  => $pipe,
-			       test	  => $test,
-			       error	  => \$error_in_archive,
-			       junk_paths => $junk_paths,
-			   });
-	}
+        if (@{$files_ref}) {
+            # Check archive members to be processed
+            for my $file (@{$files_ref}) {
+                if (match_glob($file, $member_name)
+                        || ($case_insensitive
+                                && match_glob(lc $file, lc $member_name))) {
+                    $file_is_matched{$file} = 1;
+                    $total_length += $member->uncompressedSize();
+                    $total_count++;
+                    extract_member($member,
+                                   {
+                                       replace    => \$replace,
+                                       exdir      => $exdir,
+                                       crt        => $crt,
+                                       list       => $list,
+                                       pipe       => $pipe,
+                                       test       => $test,
+                                       error      => \$error_in_archive,
+                                       junk_paths => $junk_paths,
+                                   });
+                }
+            }
+        }
+        else {
+            $total_length += $member->uncompressedSize();
+            $total_count++;
+            extract_member($member,
+                           {
+                               replace    => \$replace,
+                               exdir      => $exdir,
+                               crt        => $crt,
+                               list       => $list,
+                               pipe       => $pipe,
+                               test       => $test,
+                               error      => \$error_in_archive,
+                               junk_paths => $junk_paths,
+                           });
+        }
     }
 
     if ($list) {
-	# Print list footer
-	print "---------                     -------\n";
-	my $format = "%9u                     %u %s\n";
-	printf $format,
-	       $total_length, $total_count,
-	       $total_count > 1 ? "files" : "file"
-	       ;
+        # Print list footer
+        print "---------                     -------\n";
+        my $format = "%9u                     %u %s\n";
+        printf $format,
+               $total_length, $total_count,
+               $total_count > 1 ? "files" : "file"
+               ;
     }
 
     # print caution about unmatched filenames
     for my $file (grep { ! $file_is_matched{$_} } @{$files_ref}) {
-	print "caution: filename not matched_files:  $file\n";
+        print "caution: filename not matched_files:  $file\n";
     }
     for my $xfile (grep { ! $xfile_is_matched{$_} } @{$xfiles_ref}) {
-	print "caution: excluded filename not matched_files:  $xfile\n";
+        print "caution: excluded filename not matched_files:  $xfile\n";
     }
 
     if ($test) {
-	if ($error_in_archive) {
-	    print "At least one error was detected in $archive_name.\n"
-	}
-	elsif ($total_count == 0) {
-	    print "Caution:  zero files tested in $archive_name.\n";
-	}
-	elsif (@{$files_ref} || @{$xfiles_ref}) {
-	    print "No errors detected in $archive_name"
-		. " for the $total_count files tested.\n"
-		;
-	}
-	else {
-	    print "No errors detected in compressed data of $archive_name.\n";
-	}
+        if ($error_in_archive) {
+            print "At least one error was detected in $archive_name.\n"
+        }
+        elsif ($total_count == 0) {
+            print "Caution:  zero files tested in $archive_name.\n";
+        }
+        elsif (@{$files_ref} || @{$xfiles_ref}) {
+            print "No errors detected in $archive_name"
+                  . " for the $total_count files tested.\n"
+		  ;
+        }
+        else {
+            print "No errors detected in compressed data of $archive_name.\n";
+        }
     }
 
     return 1;
@@ -291,120 +291,122 @@ sub extract_archive {
 sub extract_member {
     my ($member, $arg_ref) = @_;
     my $replace_ref = $arg_ref->{replace};
-    my $exdir	    = $arg_ref->{exdir};
-    my $crt	    = $arg_ref->{crt};
-    my $list	    = $arg_ref->{list};
-    my $pipe	    = $arg_ref->{pipe};
-    my $test	    = $arg_ref->{test};
+    my $exdir       = $arg_ref->{exdir};
+    my $crt         = $arg_ref->{crt};
+    my $list        = $arg_ref->{list};
+    my $pipe        = $arg_ref->{pipe};
+    my $test        = $arg_ref->{test};
     my $error_ref   = $arg_ref->{error};
     my $junk_paths  = $arg_ref->{junk_paths};
 
     # Get file name to be extracted
     my $extracted_name = decode_name_of($member);
     if (!$crt && !$list && !$pipe && !$test) {
-	if ($junk_paths) {
-	    # Remove directory portion
-	    $extracted_name = (splitpath($extracted_name))[2];
-	}
+        if ($junk_paths) {
+            # Remove directory portion
+            $extracted_name = (splitpath($extracted_name))[2];
+        }
 
-	if (defined $exdir && $exdir ne q{}) {
-	    $extracted_name = catfile($exdir, $extracted_name);
-	}
+        if (defined $exdir && $exdir ne q{}) {
+            $extracted_name = catfile($exdir, $extracted_name);
+        }
     }
 
     # Check existing file or directory
   CHECK:
     while (!$crt && !$list && !$pipe && !$test && -e $extracted_name) {
-	return if defined ${$replace_ref} && ${$replace_ref} eq 'None';
+        return if defined ${$replace_ref} && ${$replace_ref} eq 'None';
 
-	return if -d $extracted_name && $member->isDirectory();
+        return if -d $extracted_name && $member->isDirectory();
 
-	last CHECK if defined ${$replace_ref} && ${$replace_ref} eq 'All';
+        last CHECK if defined ${$replace_ref} && ${$replace_ref} eq 'All';
 
-	my $response = get_response_for($extracted_name);
-	if ($response eq 'yes') {
-	    last CHECK;
-	}
-	elsif ($response eq 'no') {
-	    return;
-	}
-	elsif ($response eq 'All') {
-	    ${$replace_ref} = 'All';
-	    last CHECK;
-	}
-	elsif ($response eq 'None') {
-	    ${$replace_ref} = 'None';
-	    return;
-	}
-	elsif ($response eq 'rename') {
-	    $extracted_name = get_new_name();
-	}
-	else {
-	    warn "invalid response!\n";
-	}
+        my $response = get_response_for($extracted_name);
+        if ($response eq 'yes') {
+            last CHECK;
+        }
+        elsif ($response eq 'no') {
+            return;
+        }
+        elsif ($response eq 'All') {
+            ${$replace_ref} = 'All';
+            last CHECK;
+        }
+        elsif ($response eq 'None') {
+            ${$replace_ref} = 'None';
+            return;
+        }
+        elsif ($response eq 'rename') {
+            $extracted_name = get_new_name();
+        }
+        else {
+            warn "invalid response!\n";
+        }
     }
 
     if (!$list && !$pipe && !$test && !$quiet) {
-	print_progress_using($member, $extracted_name);
+        print_progress_using($member, $extracted_name);
     }
 
     if ($crt) {
-	my ($contents, $status) = $member->contents();
-	if ($status == AZ_OK) {
-	    print $contents, "\n";
-	}
-	else {
-	    warn "extract error!\n";
-	}
+        # FIXME
+        my ($contents, $status) = $member->contents();
+        if ($status == AZ_OK) {
+            print $contents, "\n";
+        }
+        else {
+            warn "extract error!\n";
+        }
     }
     elsif ($list) {
-	# Print list contents
-	my $format = "%9u  %s   %s\n";
-	printf $format,
-	       $member->uncompressedSize(),
-	       strftime("%F %R", localtime $member->lastModTime()),
-	       $extracted_name
-	       ;
+        # Print list contents
+        my $format = "%9u  %s   %s\n";
+        printf $format,
+               $member->uncompressedSize(),
+               strftime("%F %R", localtime $member->lastModTime()),
+               $extracted_name
+               ;
 
-	if (!$quiet) {
-	    # Print individual file comment
-	    my $file_comment = $member->fileComment();
-	    if ($file_comment ne q{}) {
-		print $file_comment, "\n";
-	    }
-	}
+        if (!$quiet) {
+            # Print individual file comment
+            my $file_comment = $member->fileComment();
+            if ($file_comment ne q{}) {
+                print $file_comment, "\n";
+            }
+        }
     }
     elsif ($pipe) {
-	$member->extractToFileHandle(*STDOUT);
+        # FIXME
+        $member->extractToFileHandle(*STDOUT);
     }
     elsif ($test) {
-	if (!$quiet) {
-	    printf "    testing: %-22s", $extracted_name;
-	    my $diff = length($extracted_name) - length($member->fileName());
-	    if ($diff > 0) {
-		print q{ } x $diff;
-	    }
-	}
+        if (!$quiet) {
+            printf "    testing: %-22s", $extracted_name;
+            my $diff = length($extracted_name) - length($member->fileName());
+            if ($diff > 0) {
+                print q{ } x $diff;
+            }
+        }
 
-	my $crc32 = $member->crc32();
-	my $computed_crc32 = Archive::Zip::computeCRC32($member->contents());
-	if ($crc32 == $computed_crc32) {
-	    if (!$quiet) {
-		print "   OK\n";
-	    }
-	}
-	else {
-	    ${$error_ref} = 1;
-	    if (!$quiet) {
-		printf " bad CRC %08lx  (should be %08lx)\n",
-		       $crc32, $computed_crc32
-		       ;
-	    }
-	}
+        my $crc32 = $member->crc32();
+        my $computed_crc32 = Archive::Zip::computeCRC32($member->contents());
+        if ($crc32 == $computed_crc32) {
+            if (!$quiet) {
+                print "   OK\n";
+            }
+        }
+        else {
+            ${$error_ref} = 1;
+            if (!$quiet) {
+                printf " bad CRC %08lx  (should be %08lx)\n",
+                       $crc32, $computed_crc32
+                       ;
+            }
+        }
     }
     else {
-	$member->extractToFileNamed($extracted_name) == AZ_OK
-	    or warn "extract error!\n";
+        $member->extractToFileNamed($extracted_name) == AZ_OK
+            or warn "extract error!\n";
     }
 
     return;
@@ -422,50 +424,50 @@ sub get_response_for {
     my ($extracted_name) = @_;
 
     my %pattern_for = (
-	yes    => qr{^y}xms,
-	no     => qr{^n}xms,
-	All    => qr{^A}xms,
-	None   => qr{^N}xms,
-	rename => qr{^r}xms,
+        yes    => qr{^y}xms,
+        no     => qr{^n}xms,
+        All    => qr{^A}xms,
+        None   => qr{^N}xms,
+        rename => qr{^r}xms,
     );
 
   RESPONSE:
     while (1) {
-	print "replace $extracted_name? "
-	    . "[y]es, [n]o, [A]ll, [N]one, [r]ename: "
-	    ;
+        print "replace $extracted_name? "
+              . "[y]es, [n]o, [A]ll, [N]one, [r]ename: "
+	      ;
 
-	my $response = <STDIN>;
-	if (! defined $response) {
-	    print qq{\n(EOF or read error, treating as "[N]one" ...)\n};
-	    return 'None';
-	}
+        my $response = <STDIN>;
+        if (! defined $response) {
+            print qq{\n(EOF or read error, treating as "[N]one" ...)\n};
+            return 'None';
+        }
 
-	chomp $response;
-	if ($response =~ $pattern_for{yes}) {
-	    return 'yes';
-	}
-	elsif ($response =~ $pattern_for{no}) {
-	    return 'no';
-	}
-	elsif ($response =~ $pattern_for{All}) {
-	    return 'All'
-	}
-	elsif ($response =~ $pattern_for{None}) {
-	    return 'None';
-	}
-	elsif ($response =~ $pattern_for{rename}) {
-	    return 'rename';
-	}
-	else {
-	    if ($response eq q{}) {
-		warn "error:  invalid response [{ENTER}]\n";
-	    }
-	    else {
-		warn "error:  invalid response [$response]\n";
-	    }
-	    next RESPONSE;
-	}
+        chomp $response;
+        if ($response =~ $pattern_for{yes}) {
+            return 'yes';
+        }
+        elsif ($response =~ $pattern_for{no}) {
+            return 'no';
+        }
+        elsif ($response =~ $pattern_for{All}) {
+            return 'All'
+        }
+        elsif ($response =~ $pattern_for{None}) {
+            return 'None';
+        }
+        elsif ($response =~ $pattern_for{rename}) {
+            return 'rename';
+        }
+        else {
+            if ($response eq q{}) {
+                warn "error:  invalid response [{ENTER}]\n";
+            }
+            else {
+                warn "error:  invalid response [$response]\n";
+            }
+            next RESPONSE;
+        }
     }
 
     return;
@@ -476,13 +478,13 @@ sub get_new_name {
 
   NAME:
     while (1) {
-	print 'new name: ';
+        print 'new name: ';
 
-	$new_name = <STDIN>;
-	next NAME if ! defined $new_name;
+        $new_name = <STDIN>;
+        next NAME if ! defined $new_name;
 
-	chomp $new_name;
-	last NAME if $new_name ne q{};
+        chomp $new_name;
+        last NAME if $new_name ne q{};
     }
 
     return $new_name;
@@ -492,13 +494,13 @@ sub print_progress_using {
     my ($member, $extracted_name) = @_;
 
     if ($member->isDirectory()) {
-	print "  creating: $extracted_name\n";
+        print "  creating: $extracted_name\n";
     }
     elsif ($member->desiredCompressionMethod() == COMPRESSION_STORED) {
-	print " extracting: $extracted_name\n";
+        print " extracting: $extracted_name\n";
     }
     else {
-	print "  inflating: $extracted_name\n";
+        print "  inflating: $extracted_name\n";
     }
 
     return;
