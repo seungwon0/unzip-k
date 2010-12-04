@@ -130,7 +130,7 @@ die "unzip-k:  cannot find or open $file, $file.zip or $file.ZIP.\n";
 
 sub print_usage {
     print <<'END_USAGE';
-UnZip-K 0.6 of 3 December 2010, by Seungwon Jeong.
+UnZip-K 0.7 of 4 December 2010, by Seungwon Jeong.
 
 Usage: unzip-k [-opts[modifiers]] file[.zip] [list] [-x xlist] [-d exdir]
   Default action is to extract files in list, except those in xlist, to exdir.
@@ -190,7 +190,7 @@ sub extract_archive {
 
     my $error_in_archive;
 
-    if ( ( $crt || $list || $test || $comment_only ) && !$quiet ) {
+    if ( !$pipe && !$quiet ) {
 
         # Print archive comment
         my $archive_comment = $zip->zipfileComment();
