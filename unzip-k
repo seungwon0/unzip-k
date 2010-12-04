@@ -104,26 +104,49 @@ if ( @ARGV < 1 ) {
 
 my ( $file, @files ) = @ARGV;
 
-ARCHIVE:
-for my $archive ( $file, "$file.zip", "$file.ZIP" ) {
-    next ARCHIVE if !-f $archive;
-    extract_archive(
-        $archive,
-        {   files            => \@files,
-            xfiles           => \@xfiles,
-            exdir            => $exdir,
-            crt              => $crt,
-            list             => $list,
-            pipe             => $pipe,
-            test             => $test,
-            comment_only     => $comment_only,
-            case_insensitive => $case_insensitive,
-            junk_paths       => $junk_paths,
-            never_overwrite  => $never_overwrite,
-            overwrite        => $overwrite,
-            quiet            => $quiet,
-        }
-    ) and exit;
+my $arg_ref = {
+    files            => \@files,
+    xfiles           => \@xfiles,
+    exdir            => $exdir,
+    crt              => $crt,
+    list             => $list,
+    pipe             => $pipe,
+    test             => $test,
+    comment_only     => $comment_only,
+    case_insensitive => $case_insensitive,
+    junk_paths       => $junk_paths,
+    never_overwrite  => $never_overwrite,
+    overwrite        => $overwrite,
+    quiet            => $quiet,
+};
+
+my @archives = glob $file;
+
+my $nr_success = 0;
+
+for my $archive (@archives) {
+    if ( extract_archive( $archive, $arg_ref ) ) {
+        $nr_success++;
+    }
+
+    if ( @archives > 1 ) {
+        print "\n";
+    }
+}
+
+if ($nr_success) {
+    if ( $nr_success > 1 ) {
+        print "$nr_success archives were successfully processed.\n";
+    }
+
+    exit;
+}
+
+# Try to append .zip and .ZIP suffixes
+for my $assumption ( "$file.zip", "$file.ZIP" ) {
+    if ( -f $assumption ) {
+        extract_archive( $assumption, $arg_ref ) and exit;
+    }
 }
 
 die "unzip-k:  cannot find or open $file, $file.zip or $file.ZIP.\n";
@@ -566,7 +589,38 @@ program options or default behaviors differ.
 
 =item F<file>[F<.zip>]
 
-Path of the ZIP archive.
+Path of the ZIP archive.  If the file specification is a wildcard,
+each matching file is processed in an order determined by the
+operating system (or file system).  Wildcard expressions are similar
+to those supported in commonly used Unix shells (I<sh>, I<ksh>,
+I<csh>) and may contain:
+
+=over
+
+=item B<*>
+
+matches a sequence of 0 or more characters
+
+=item B<?>
+
+matches exactly 1 character
+
+=item B<[...]>
+
+matches any single character found inside the brackets; ranges are
+specified by a beginning character, a hyphen, and an ending character.
+If an exclamation point or a caret (`!' or `^') follows the left
+bracket, then the range of characters within the brackets is
+complemented (that is, anything I<except> the characters inside the
+brackets is considered a match).  To specify a verbatim left bracket,
+the three-character sequence ``[[]'' has to be used.
+
+=back
+
+(Be sure to quote any character that might otherwise be interpreted or
+modified by the operating system) If no matches are found, the
+specification is assumed to be a literal filename; and if that also
+fails, the suffix .zip is appended.
 
 =item [F<file(s)>]
 
@@ -769,7 +823,7 @@ unzip-k -C source.zip "*.[fch]" makefile -d /tmp
 
 =head1 URL
 
-https://github.com/seungwon0/unzip-k
+L<https://github.com/seungwon0/unzip-k>
 
 
 =head1 AUTHOR
