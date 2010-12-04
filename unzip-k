@@ -156,7 +156,8 @@ sub print_usage {
 UnZip-K 0.7 of 4 December 2010, by Seungwon Jeong.
 
 Usage: unzip-k [-opts[modifiers]] file[.zip] [list] [-x xlist] [-d exdir]
-  Default action is to extract files in list, except those in xlist, to exdir.
+  Default action is to extract files in list, except those in xlist, to exdir;
+  file[.zip] may be a wildcard.
 
   -p  extract files to pipe, no messages     -l  list files
   -t  test compressed archive data           -z  display archive comment only
