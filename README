@@ -7,6 +7,12 @@ direcotry name encoded in Microsoft's CP949.
 You can use this program to list, test or extract compressed files
 from a ZIP archive.
 
+This program requires Archive::Zip and Text::Glob modules. In Ubuntu,
+you may need to install libarchive-zip-perl and libtext-glob-perl
+package.
+
+http://ubuntu.or.kr/viewtopic.php?f=4&t=13970
+
 
 INSTALL
 =======
