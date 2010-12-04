@@ -298,7 +298,7 @@ MEMBER:
         my $format = "%9u                     %u %s\n";
         printf $format,
             $total_length, $total_count,
-            $total_count > 1 ? "files" : "file";
+            $total_count == 1 ? "file" : "files";
     }
 
     # print caution about unmatched filenames
