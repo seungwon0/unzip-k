@@ -303,10 +303,10 @@ MEMBER:
 
     # print caution about unmatched filenames
     for my $file ( grep { !$matched_file{$_} } @{$files_ref} ) {
-        print "caution: filename not matched_files:  $file\n";
+        print "caution: filename not matched:  $file\n";
     }
     for my $xfile ( grep { !$matched_xfile{$_} } @{$xfiles_ref} ) {
-        print "caution: excluded filename not matched_files:  $xfile\n";
+        print "caution: excluded filename not matched:  $xfile\n";
     }
 
     if ($test) {
