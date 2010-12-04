@@ -69,26 +69,25 @@ my $quiet;
 my $strict_wildcard_slash;
 
 Getopt::Long::Configure( 'no_pass_through', 'bundling' );
-if (!GetOptions(
-        'd=s' => \$exdir,
+my @args = (
+    'd=s' => \$exdir,
 
-        # Options
-        'c' => \$crt,
-        'l' => \$list,
-        'p' => \$pipe,
-        't' => \$test,
-        'z' => \$comment_only,
+    # Options
+    'c' => \$crt,
+    'l' => \$list,
+    'p' => \$pipe,
+    't' => \$test,
+    'z' => \$comment_only,
 
-        # Modifiers
-        'C' => \$case_insensitive,
-        'j' => \$junk_paths,
-        'n' => \$never_overwrite,
-        'o' => \$overwrite,
-        'q' => \$quiet,
-        'W' => \$strict_wildcard_slash,
-    )
-    )
-{
+    # Modifiers
+    'C' => \$case_insensitive,
+    'j' => \$junk_paths,
+    'n' => \$never_overwrite,
+    'o' => \$overwrite,
+    'q' => \$quiet,
+    'W' => \$strict_wildcard_slash,
+);
+if ( !GetOptions(@args) ) {
     print_usage();
     exit 1;
 }
@@ -142,7 +141,7 @@ if ($nr_success) {
     exit;
 }
 
-# Try to append .zip and .ZIP suffixes
+# Try to append .zip or .ZIP suffix
 for my $assumption ( "$file.zip", "$file.ZIP" ) {
     if ( -f $assumption ) {
         extract_archive( $assumption, $arg_ref ) and exit;
@@ -232,6 +231,17 @@ sub extract_archive {
         print "---------  ---------- -----   ----\n";
     }
 
+    $arg_ref = {
+        replace    => \$replace,
+        exdir      => $exdir,
+        crt        => $crt,
+        list       => $list,
+        pipe       => $pipe,
+        test       => $test,
+        error      => \$error_in_archive,
+        junk_paths => $junk_paths,
+    };
+
 MEMBER:
     for my $member ( $zip->members() ) {
         my $member_name = decode_name_of($member);
@@ -251,6 +261,7 @@ MEMBER:
                     )
                 {
                     $matched_xfile{$xfile} = 1;
+
                     next MEMBER;
                 }
             }
@@ -266,38 +277,17 @@ MEMBER:
                     )
                 {
                     $matched_file{$file} = 1;
+
                     $total_length += $member->uncompressedSize();
                     $total_count++;
-                    extract_member(
-                        $member,
-                        {   replace    => \$replace,
-                            exdir      => $exdir,
-                            crt        => $crt,
-                            list       => $list,
-                            pipe       => $pipe,
-                            test       => $test,
-                            error      => \$error_in_archive,
-                            junk_paths => $junk_paths,
-                        }
-                    );
+                    extract_member( $member, $arg_ref );
                 }
             }
         }
         else {
             $total_length += $member->uncompressedSize();
             $total_count++;
-            extract_member(
-                $member,
-                {   replace    => \$replace,
-                    exdir      => $exdir,
-                    crt        => $crt,
-                    list       => $list,
-                    pipe       => $pipe,
-                    test       => $test,
-                    error      => \$error_in_archive,
-                    junk_paths => $junk_paths,
-                }
-            );
+            extract_member( $member, $arg_ref );
         }
     }
 
