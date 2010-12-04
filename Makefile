@@ -25,7 +25,7 @@ man1dir := $(mandir)/man1
 .PHONY : all
 all : $(program) $(manpage)
 
-$(manpage) :
+$(manpage) : $(program)
 	pod2man $(program) > $@
 
 .PHONY : install
