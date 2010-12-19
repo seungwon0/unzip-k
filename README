@@ -7,8 +7,8 @@ direcotry name encoded in Microsoft's CP949.
 You can use this program to list, test, or extract compressed files
 from a ZIP archive.
 
-This program requires Archive::Zip, Text::Glob and IO::Prompt
-modules. In Ubuntu, you may need to install libarchive-zip-perl,
+This program requires Archive::Zip, Text::Glob and IO::Prompt modules.
+In Ubuntu, you may need to install libarchive-zip-perl,
 libtext-glob-perl and libio-prompt-perl package.
 
 Learn more about this program at the following link (Korean):
@@ -22,7 +22,7 @@ INSTALL
 % make install
 
 
-UNINSTLALL
+UNINSTALLL
 ----------
 
 % make uninstall
@@ -37,4 +37,4 @@ https://github.com/seungwon0/unzip-k
 Author
 ------
 
-Seungwon jeong <seungwon0@gmail.com>
+Seungwon Jeong <seungwon0@gmail.com>
