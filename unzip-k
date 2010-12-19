@@ -105,7 +105,7 @@ if ( @ARGV < 1 ) {
 
 my ( $file, @files ) = @ARGV;
 
-undef @ARGV;
+undef @ARGV;    # For caution's sake
 
 my $arg_ref = {
     files            => \@files,
@@ -156,7 +156,7 @@ die "unzip-k:  cannot find or open $file, $file.zip or $file.ZIP.\n";
 
 sub print_usage {
     print <<'END_USAGE';
-UnZip-K 0.7 of 4 December 2010, by Seungwon Jeong.
+UnZip-K 0.8 of 19 December 2010, by Seungwon Jeong.
 
 Usage: unzip-k [-opts[modifiers]] file[.zip] [list] [-x xlist] [-d exdir]
   Default action is to extract files in list, except those in xlist, to exdir;
@@ -482,7 +482,7 @@ sub get_response_for {
     my $prompt
         = "replace $extracted_name? [y]es, [n]o, [A]ll, [N]one, [r]ename: ";
 
-    while (my $response = prompt $prompt, -tty) {
+    while ( my $response = prompt $prompt, -tty ) {
         if ( $response =~ $pattern_for{yes} ) {
             return 'yes';
         }
@@ -517,10 +517,10 @@ sub get_new_name {
 
     while (1) {
         my $new_name = prompt $prompt, -tty;
-        if (defined $new_name && $new_name ne q{}) {
+        if ( defined $new_name && $new_name ne q{} ) {
+
             # Warning: $new_name is an object, not a string.
             return "$new_name";
-
         }
     }
 }
