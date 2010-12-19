@@ -7,9 +7,9 @@
 # archive containing file or directory name encoded in Microsoft's
 # CP949.
 #
-# This program requires Archive::Zip and Text::Glob modules. In
-# Ubuntu, you may need to install libarchive-zip-perl and
-# libtext-glob-perl package.
+# This program requires Archive::Zip, Text::Glob and IO::Prompt
+# modules. In Ubuntu, you may need to install libarchive-zip-perl,
+# libtext-glob-perl and libio-prompt-perl package.
 #
 # http://ubuntu.or.kr/viewtopic.php?f=4&t=13970
 #
@@ -46,6 +46,8 @@ use Text::Glob qw( match_glob );
 use File::Spec::Functions qw ( catfile splitpath );
 
 use POSIX qw( strftime );
+
+use IO::Prompt;
 
 my @xfiles;
 
@@ -102,6 +104,8 @@ if ( @ARGV < 1 ) {
 }
 
 my ( $file, @files ) = @ARGV;
+
+undef @ARGV;
 
 my $arg_ref = {
     files            => \@files,
@@ -475,18 +479,10 @@ sub get_response_for {
         rename => qr{^r}xms,
     );
 
-RESPONSE:
-    while (1) {
-        print "replace $extracted_name? "
-            . "[y]es, [n]o, [A]ll, [N]one, [r]ename: ";
+    my $prompt
+        = "replace $extracted_name? [y]es, [n]o, [A]ll, [N]one, [r]ename: ";
 
-        my $response = <STDIN>;
-        if ( !defined $response ) {
-            print qq{\n(EOF or read error, treating as "[N]one" ...)\n};
-            return 'None';
-        }
-
-        chomp $response;
+    while (my $response = prompt $prompt, -tty) {
         if ( $response =~ $pattern_for{yes} ) {
             return 'yes';
         }
@@ -509,28 +505,24 @@ RESPONSE:
             else {
                 warn "error:  invalid response [$response]\n";
             }
-            next RESPONSE;
         }
     }
 
-    return;
+    print qq{\n(EOF or read error, treating as "[N]one" ...)\n};
+    return 'None';
 }
 
 sub get_new_name {
-    my $new_name;
+    my $prompt = 'new name: ';
 
-NAME:
     while (1) {
-        print 'new name: ';
+        my $new_name = prompt $prompt, -tty;
+        if (defined $new_name && $new_name ne q{}) {
+            # Warning: $new_name is an object, not a string.
+            return "$new_name";
 
-        $new_name = <STDIN>;
-        next NAME if !defined $new_name;
-
-        chomp $new_name;
-        last NAME if $new_name ne q{};
+        }
     }
-
-    return $new_name;
 }
 
 sub print_progress_using {
@@ -808,6 +800,8 @@ unzip-k -C source.zip "*.[fch]" makefile -d /tmp
 =item C<File::Spec::Functions>
 
 =item C<POSIX>
+
+=item C<IO::Prompt>
 
 =back
 
