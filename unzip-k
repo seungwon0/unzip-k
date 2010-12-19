@@ -3,7 +3,7 @@
 # unzip-k - list, test and extract a ZIP archive containing file or
 # directory name encoded in Microsoft's CP949
 #
-# unzip-k will list, test or extract compressed files from a ZIP
+# unzip-k will list, test, or extract compressed files from a ZIP
 # archive containing file or directory name encoded in Microsoft's
 # CP949.
 #
@@ -564,7 +564,7 @@ B<unzip-k> [B<-clptz>[B<jnoqCW>]] F<file>[F<.zip>] [F<file(s)>] [-x F<xfile(s)> 
 
 =head1 DESCRIPTION
 
-I<unzip-k> will list, test or extract compressed files from a ZIP
+I<unzip-k> will list, test, or extract compressed files from a ZIP
 archive containing file or directory name encoded in Microsoft's
 CP949. The default behavior (with no options) is to extract into the
 current directory (and subdirectories below it) all files from the
