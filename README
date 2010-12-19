@@ -4,36 +4,37 @@ UnZip-K
 UnZip-K is an extraction utility for a zip archive containing file or
 direcotry name encoded in Microsoft's CP949.
 
-You can use this program to list, test or extract compressed files
+You can use this program to list, test, or extract compressed files
 from a ZIP archive.
 
-This program requires Archive::Zip and Text::Glob modules. In Ubuntu,
-you may need to install libarchive-zip-perl and libtext-glob-perl
-package.
+This program requires Archive::Zip, Text::Glob and IO::Prompt
+modules. In Ubuntu, you may need to install libarchive-zip-perl,
+libtext-glob-perl and libio-prompt-perl package.
 
+Learn more about this program at the following link (Korean):
 http://ubuntu.or.kr/viewtopic.php?f=4&t=13970
 
 
 INSTALL
-=======
+-------
 
-	$ make
-	$ sudo make install
+% make
+% make install
 
 
 UNINSTLALL
-==========
+----------
 
-	$ sudo make uninstall
+% make uninstall
 
 
 URL
-===
+---
 
 https://github.com/seungwon0/unzip-k
 
 
 Author
-======
+------
 
 Seungwon jeong <seungwon0@gmail.com>

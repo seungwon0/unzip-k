@@ -3,13 +3,13 @@
 # unzip-k - list, test and extract a ZIP archive containing file or
 # directory name encoded in Microsoft's CP949
 #
-# unzip-k will list, test or extract compressed files from a ZIP
+# unzip-k will list, test, or extract compressed files from a ZIP
 # archive containing file or directory name encoded in Microsoft's
 # CP949.
 #
-# This program requires Archive::Zip and Text::Glob modules. In
-# Ubuntu, you may need to install libarchive-zip-perl and
-# libtext-glob-perl package.
+# This program requires Archive::Zip, Text::Glob and IO::Prompt
+# modules. In Ubuntu, you may need to install libarchive-zip-perl,
+# libtext-glob-perl and libio-prompt-perl package.
 #
 # http://ubuntu.or.kr/viewtopic.php?f=4&t=13970
 #
@@ -46,6 +46,8 @@ use Text::Glob qw( match_glob );
 use File::Spec::Functions qw ( catfile splitpath );
 
 use POSIX qw( strftime );
+
+use IO::Prompt;
 
 my @xfiles;
 
@@ -103,6 +105,8 @@ if ( @ARGV < 1 ) {
 
 my ( $file, @files ) = @ARGV;
 
+undef @ARGV;    # For caution's sake
+
 my $arg_ref = {
     files            => \@files,
     xfiles           => \@xfiles,
@@ -152,7 +156,7 @@ die "unzip-k:  cannot find or open $file, $file.zip or $file.ZIP.\n";
 
 sub print_usage {
     print <<'END_USAGE';
-UnZip-K 0.7 of 4 December 2010, by Seungwon Jeong.
+UnZip-K 0.8 of 19 December 2010, by Seungwon Jeong.
 
 Usage: unzip-k [-opts[modifiers]] file[.zip] [list] [-x xlist] [-d exdir]
   Default action is to extract files in list, except those in xlist, to exdir;
@@ -475,18 +479,10 @@ sub get_response_for {
         rename => qr{^r}xms,
     );
 
-RESPONSE:
-    while (1) {
-        print "replace $extracted_name? "
-            . "[y]es, [n]o, [A]ll, [N]one, [r]ename: ";
+    my $prompt
+        = "replace $extracted_name? [y]es, [n]o, [A]ll, [N]one, [r]ename: ";
 
-        my $response = <STDIN>;
-        if ( !defined $response ) {
-            print qq{\n(EOF or read error, treating as "[N]one" ...)\n};
-            return 'None';
-        }
-
-        chomp $response;
+    while ( my $response = prompt $prompt, -tty ) {
         if ( $response =~ $pattern_for{yes} ) {
             return 'yes';
         }
@@ -509,28 +505,24 @@ RESPONSE:
             else {
                 warn "error:  invalid response [$response]\n";
             }
-            next RESPONSE;
         }
     }
 
-    return;
+    print qq{\n(EOF or read error, treating as "[N]one" ...)\n};
+    return 'None';
 }
 
 sub get_new_name {
-    my $new_name;
+    my $prompt = 'new name: ';
 
-NAME:
     while (1) {
-        print 'new name: ';
+        my $new_name = prompt $prompt, -tty;
+        if ( defined $new_name && $new_name ne q{} ) {
 
-        $new_name = <STDIN>;
-        next NAME if !defined $new_name;
-
-        chomp $new_name;
-        last NAME if $new_name ne q{};
+            # Warning: $new_name is an object, not a string.
+            return "$new_name";
+        }
     }
-
-    return $new_name;
 }
 
 sub print_progress_using {
@@ -564,7 +556,7 @@ B<unzip-k> [B<-clptz>[B<jnoqCW>]] F<file>[F<.zip>] [F<file(s)>] [-x F<xfile(s)> 
 
 =head1 DESCRIPTION
 
-I<unzip-k> will list, test or extract compressed files from a ZIP
+I<unzip-k> will list, test, or extract compressed files from a ZIP
 archive containing file or directory name encoded in Microsoft's
 CP949. The default behavior (with no options) is to extract into the
 current directory (and subdirectories below it) all files from the
@@ -808,6 +800,8 @@ unzip-k -C source.zip "*.[fch]" makefile -d /tmp
 =item C<File::Spec::Functions>
 
 =item C<POSIX>
+
+=item C<IO::Prompt>
 
 =back
 
