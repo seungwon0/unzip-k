@@ -49,6 +49,8 @@ use POSIX qw( strftime );
 
 use IO::Prompt;
 
+use File::Glob qw( :glob );
+
 my @xfiles;
 
 Getopt::Long::Configure('pass_through');
@@ -123,7 +125,7 @@ my $arg_ref = {
     quiet            => $quiet,
 };
 
-my @archives = glob $file;
+my @archives = bsd_glob($file);
 
 my $nr_success = 0;
 
