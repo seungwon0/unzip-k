@@ -15,7 +15,7 @@
 #
 # Seungwon Jeong <seungwon0@gmail.com>
 #
-# Copyright (C) 2010 by Seungwon Jeong
+# Copyright (C) 2011 by Seungwon Jeong
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -158,7 +158,7 @@ die "unzip-k:  cannot find or open $file, $file.zip or $file.ZIP.\n";
 
 sub print_usage {
     print <<'END_USAGE';
-UnZip-K 0.8 of 19 December 2010, by Seungwon Jeong.
+UnZip-K 0.9 of 16 January 2011, by Seungwon Jeong.
 
 Usage: unzip-k [-opts[modifiers]] file[.zip] [list] [-x xlist] [-d exdir]
   Default action is to extract files in list, except those in xlist, to exdir;
@@ -550,11 +550,9 @@ __END__
 unzip-k - list, test and extract a ZIP archive containing file or
 directory name encoded in Microsoft's CP949
 
-
 =head1 SYNOPSIS
 
 B<unzip-k> [B<-clptz>[B<jnoqCW>]] F<file>[F<.zip>] [F<file(s)>] [-x F<xfile(s)> ...] [-d F<exdir>]
-
 
 =head1 DESCRIPTION
 
@@ -566,7 +564,6 @@ specified ZIP archive.  A companion program, I<zip>(1), creates ZIP
 archives; both programs are compatible with archives created by
 PKWARE's I<PKZIP> and I<PKUNZIP> for MS-DOS, but in many cases the
 program options or default behaviors differ.
-
 
 =head1 ARGUMENTS
 
@@ -643,7 +640,6 @@ direc‐ tory.
 
 =back
 
-
 =head1 OPTIONS
 
 =over
@@ -679,7 +675,6 @@ value.
 display only the archive comment.
 
 =back
-
 
 =head1 MODIFIERS
 
@@ -750,7 +745,6 @@ separator character `/'.  Examples:
 
 =back
 
-
 =head1 EXAMPLES
 
 To use I<unzip-k> to extract all members of the archive F<letters.zip>
@@ -786,7 +780,6 @@ similar):
 
 unzip-k -C source.zip "*.[fch]" makefile -d /tmp
 
-
 =head1 DEPENDENCIES
 
 =over
@@ -805,18 +798,17 @@ unzip-k -C source.zip "*.[fch]" makefile -d /tmp
 
 =item C<IO::Prompt>
 
-=back
+=item C<File::Glob>
 
+=back
 
 =head1 URL
 
 L<https://github.com/seungwon0/unzip-k>
 
-
 =head1 AUTHOR
 
 Seungwon Jeong E<lt>seungwon0@gmail.comE<gt>
-
 
 =head1 SEE ALSO
 
