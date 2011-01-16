@@ -28,13 +28,19 @@ UNINSTALLL
 % make uninstall
 
 
+SEE ALSO
+--------
+
+https://github.com/seungwon0/nautilus-unzip-k
+
+
 URL
 ---
 
 https://github.com/seungwon0/unzip-k
 
 
-Author
+AUTHOR
 ------
 
 Seungwon Jeong <seungwon0@gmail.com>
