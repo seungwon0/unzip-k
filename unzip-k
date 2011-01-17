@@ -202,6 +202,77 @@ sub print_archive_name {
     return;
 }
 
+# oct('0755') => rwxr-xr-x
+sub get_unix_file_attr_string {
+    my $unix_file_attr = shift() & oct('0777');
+
+    my $unix_file_attr_string;
+
+    # User
+    $unix_file_attr_string .= ( $unix_file_attr & S_IRUSR ) ? 'r' : '-';
+    $unix_file_attr_string .= ( $unix_file_attr & S_IWUSR ) ? 'w' : '-';
+    $unix_file_attr_string .= ( $unix_file_attr & S_IXUSR ) ? 'x' : '-';
+
+    # Group
+    $unix_file_attr_string .= ( $unix_file_attr & S_IRGRP ) ? 'r' : '-';
+    $unix_file_attr_string .= ( $unix_file_attr & S_IWGRP ) ? 'w' : '-';
+    $unix_file_attr_string .= ( $unix_file_attr & S_IXGRP ) ? 'x' : '-';
+
+    # Other
+    $unix_file_attr_string .= ( $unix_file_attr & S_IROTH ) ? 'r' : '-';
+    $unix_file_attr_string .= ( $unix_file_attr & S_IWOTH ) ? 'w' : '-';
+    $unix_file_attr_string .= ( $unix_file_attr & S_IXOTH ) ? 'x' : '-';
+
+    return $unix_file_attr_string;
+}
+
+sub get_member_info {
+    my ($member) = @_;
+
+    my $file_attribute_format = $member->fileAttributeFormat();
+
+    my $version = $member->versionMadeBy();
+    $version =~ s/^(\d)/$1\./xms;    # 20 -> 2.0
+
+    my $extra_field = $member->extraFields();
+
+    my $last_mod_time_string
+        = strftime( '%Y%m%d.%H%M%S', localtime $member->lastModTime() );
+
+    my $member_name = $member->fileName();
+
+    my $member_info;
+
+    $member_info .= $member->isDirectory() ? 'd' : '-';
+
+    if ( $file_attribute_format == FA_MSDOS ) {
+        $member_info .= 'rw-a--   ';    # FIXIT
+    }
+    else {
+        my $unix_file_attr = $member->unixFileAttributes();
+        $member_info .= get_unix_file_attr_string($unix_file_attr);
+    }
+
+    $member_info .= "  $version ";
+
+    $member_info .= ( $file_attribute_format == FA_MSDOS ) ? 'fat ' : 'unx ';
+
+    $member_info .= sprintf '%8d ', $member->uncompressedSize();
+
+    $member_info .= ( $member->isTextFile() ) ? 't' : 'b';
+
+    $member_info .= ( $extra_field ne q{} ) ? 'x ' : '- ';
+
+    $member_info .=
+        ( $member->compressionMethod() == COMPRESSION_STORED )
+        ? 'stor '
+        : 'defN ';
+
+    $member_info .= "$last_mod_time_string $member_name";
+
+    return $member_info;
+}
+
 sub zipinfo {
     my ($archive_name) = @_;
 
@@ -222,135 +293,21 @@ sub zipinfo {
     my $total_compressed_size;
 
     for my $member ( $zip->members() ) {
-        my $uncompressed_size = $member->uncompressedSize();
-        $total_uncompressed_size += $uncompressed_size;
+        $total_uncompressed_size += $member->uncompressedSize();
+        $total_compressed_size   += $member->compressedSize();
 
-        $total_compressed_size += $member->compressedSize();
-
-        my $last_mod_time
-            = strftime( '%Y%m%d.%H%M%S', localtime $member->lastModTime() );
-        my $member_name = $member->fileName();
-
-        my $extra_field = $member->extraFields();
-
-        my $version = $member->versionMadeBy();
-        $version =~ s/^(\d)/$1\./xms;
-
-        my $file_attribute_format = $member->fileAttributeFormat();
-
-        my $member_info;
-        if ( $member->isDirectory() ) {
-            $member_info .= 'd';
-        }
-        else {
-            $member_info .= '-';
-        }
-        if ( $file_attribute_format == FA_MSDOS ) {
-            $member_info .= 'rw-a--   ';
-        }
-        else {
-            my $unix_file_attributes = $member->unixFileAttributes();
-            $unix_file_attributes &= oct('0777');
-
-            # User
-            if ( $unix_file_attributes & S_IRUSR ) {
-                $member_info .= 'r';
-            }
-            else {
-                $member_info .= '-';
-            }
-            if ( $unix_file_attributes & S_IWUSR ) {
-                $member_info .= 'w';
-            }
-            else {
-                $member_info .= '-';
-            }
-            if ( $unix_file_attributes & S_IXUSR ) {
-                $member_info .= 'x';
-            }
-            else {
-                $member_info .= '-';
-            }
-
-            # Group
-            if ( $unix_file_attributes & S_IRGRP ) {
-                $member_info .= 'r';
-            }
-            else {
-                $member_info .= '-';
-            }
-            if ( $unix_file_attributes & S_IWGRP ) {
-                $member_info .= 'w';
-            }
-            else {
-                $member_info .= '-';
-            }
-            if ( $unix_file_attributes & S_IXGRP ) {
-                $member_info .= 'x';
-            }
-            else {
-                $member_info .= '-';
-            }
-
-            # Other
-            if ( $unix_file_attributes & S_IROTH ) {
-                $member_info .= 'r';
-            }
-            else {
-                $member_info .= '-';
-            }
-            if ( $unix_file_attributes & S_IWOTH ) {
-                $member_info .= 'w';
-            }
-            else {
-                $member_info .= '-';
-            }
-            if ( $unix_file_attributes & S_IXOTH ) {
-                $member_info .= 'x';
-            }
-            else {
-                $member_info .= '-';
-            }
-        }
-        $member_info .= "  $version ";
-        if ( $file_attribute_format == FA_MSDOS ) {
-            $member_info .= 'fat ';
-        }
-        else {
-            $member_info .= 'unx ';
-        }
-        $member_info .= sprintf '%8d ', $uncompressed_size;
-        if ( $member->isTextFile() ) {
-            $member_info .= 't';
-        }
-        else {
-            $member_info .= 'b';
-        }
-        if ( $extra_field ne q{} ) {
-            $member_info .= 'x ';
-        }
-        else {
-            $member_info .= '- ';
-        }
-        if ( $member->compressionMethod() == COMPRESSION_STORED ) {
-            $member_info .= 'stor ';
-        }
-        else {
-            $member_info .= 'defN ';
-        }
-        $member_info .= "$last_mod_time $member_name";
-
-        print $member_info, "\n";
+        my $member_info = get_member_info($member);
+        print "$member_info\n";
     }
 
     my $compress_ratio = 0.0;
     if ($total_uncompressed_size) {
-        $compress_ratio = 58.5;
+        $compress_ratio = 58.5;    # FIXIT
     }
 
     my $format = '%d file%s, %d bytes uncompressed, '
         . "%d bytes compressed:  %.1f%%\n";
-    printf $format, $nr_entries, ($nr_entries >= 2) ? 's' : q{},
+    printf $format, $nr_entries, ( $nr_entries >= 2 ) ? 's' : q{},
         $total_uncompressed_size, $total_compressed_size, $compress_ratio;
 
     return 1;
