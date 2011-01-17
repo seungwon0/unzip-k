@@ -300,15 +300,19 @@ sub zipinfo {
         print "$member_info\n";
     }
 
-    my $compress_ratio = 0.0;
+    my $compression_ratio = 0.0;
     if ($total_uncompressed_size) {
-        $compress_ratio = 58.5;    # FIXIT
+        $compression_ratio
+            = $total_uncompressed_size - $total_compressed_size;
+        $compression_ratio /= $total_uncompressed_size;
+        $compression_ratio *= 100;
+        $compression_ratio += 0.05;    # For compatibility with unzip
     }
 
     my $format = '%d file%s, %d bytes uncompressed, '
         . "%d bytes compressed:  %.1f%%\n";
     printf $format, $nr_entries, ( $nr_entries >= 2 ) ? 's' : q{},
-        $total_uncompressed_size, $total_compressed_size, $compress_ratio;
+        $total_uncompressed_size, $total_compressed_size, $compression_ratio;
 
     return 1;
 }
