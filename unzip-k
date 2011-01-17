@@ -51,6 +51,8 @@ use IO::Prompt;
 
 use File::Glob qw( :glob );
 
+use Fcntl qw( :mode );
+
 my @xfiles;
 
 Getopt::Long::Configure('pass_through');
@@ -72,15 +74,22 @@ my $overwrite;
 my $quiet;
 my $strict_wildcard_slash;
 
+my $zipinfo;
+my $zipinfo_time;
+my $zipinfo_short;
+
 Getopt::Long::Configure( 'no_pass_through', 'bundling' );
 my @args = (
     'd=s' => \$exdir,
 
     # Options
+    'Z' => \$zipinfo,
     'c' => \$crt,
     'l' => \$list,
     'p' => \$pipe,
     't' => \$test,
+    'T' => \$zipinfo_time,
+    's' => \$zipinfo_short,
     'z' => \$comment_only,
 
     # Modifiers
@@ -130,8 +139,15 @@ my @archives = bsd_glob($file);
 my $nr_success = 0;
 
 for my $archive (@archives) {
-    if ( extract_archive( $archive, $arg_ref ) ) {
-        $nr_success++;
+    if ($zipinfo) {
+        if ( zipinfo($archive) ) {
+            $nr_success++;
+        }
+    }
+    else {
+        if ( unzip( $archive, $arg_ref ) ) {
+            $nr_success++;
+        }
     }
 
     if ( @archives > 1 ) {
@@ -150,7 +166,7 @@ if ($nr_success) {
 # Try to append .zip or .ZIP suffix
 for my $assumption ( "$file.zip", "$file.ZIP" ) {
     if ( -f $assumption ) {
-        extract_archive( $assumption, $arg_ref ) and exit;
+        unzip( $assumption, $arg_ref ) and exit;
     }
 }
 
@@ -158,7 +174,7 @@ die "unzip-k:  cannot find or open $file, $file.zip or $file.ZIP.\n";
 
 sub print_usage {
     print <<'END_USAGE';
-UnZip-K 0.9 of 16 January 2011, by Seungwon Jeong.
+UnZip-K 1.0 of 18 January 2011, by Seungwon Jeong.
 
 Usage: unzip-k [-opts[modifiers]] file[.zip] [list] [-x xlist] [-d exdir]
   Default action is to extract files in list, except those in xlist, to exdir;
@@ -179,7 +195,168 @@ END_USAGE
     return;
 }
 
-sub extract_archive {
+sub print_archive_name {
+    my ($archive_name) = @_;
+
+    print "Archive:  $archive_name\n";
+    return;
+}
+
+sub zipinfo {
+    my ($archive_name) = @_;
+
+    print_archive_name($archive_name);
+
+    my $archive_size = -s $archive_name;
+
+    my $zip = Archive::Zip->new();
+
+    $zip->read($archive_name) == AZ_OK or return;
+
+    my $nr_entries = $zip->numberOfMembers();
+
+    print "Zip file size: $archive_size bytes, "
+        . "number of entries: $nr_entries\n";
+
+    my $total_uncompressed_size;
+    my $total_compressed_size;
+
+    for my $member ( $zip->members() ) {
+        my $uncompressed_size = $member->uncompressedSize();
+        $total_uncompressed_size += $uncompressed_size;
+
+        $total_compressed_size += $member->compressedSize();
+
+        my $last_mod_time
+            = strftime( '%Y%m%d.%H%M%S', localtime $member->lastModTime() );
+        my $member_name = $member->fileName();
+
+        my $extra_field = $member->extraFields();
+
+        my $version = $member->versionMadeBy();
+        $version =~ s/^(\d)/$1\./xms;
+
+        my $file_attribute_format = $member->fileAttributeFormat();
+
+        my $member_info;
+        if ( $member->isDirectory() ) {
+            $member_info .= 'd';
+        }
+        else {
+            $member_info .= '-';
+        }
+        if ( $file_attribute_format == FA_MSDOS ) {
+            $member_info .= 'rw-a--   ';
+        }
+        else {
+            my $unix_file_attributes = $member->unixFileAttributes();
+            $unix_file_attributes &= oct('0777');
+
+            # User
+            if ( $unix_file_attributes & S_IRUSR ) {
+                $member_info .= 'r';
+            }
+            else {
+                $member_info .= '-';
+            }
+            if ( $unix_file_attributes & S_IWUSR ) {
+                $member_info .= 'w';
+            }
+            else {
+                $member_info .= '-';
+            }
+            if ( $unix_file_attributes & S_IXUSR ) {
+                $member_info .= 'x';
+            }
+            else {
+                $member_info .= '-';
+            }
+
+            # Group
+            if ( $unix_file_attributes & S_IRGRP ) {
+                $member_info .= 'r';
+            }
+            else {
+                $member_info .= '-';
+            }
+            if ( $unix_file_attributes & S_IWGRP ) {
+                $member_info .= 'w';
+            }
+            else {
+                $member_info .= '-';
+            }
+            if ( $unix_file_attributes & S_IXGRP ) {
+                $member_info .= 'x';
+            }
+            else {
+                $member_info .= '-';
+            }
+
+            # Other
+            if ( $unix_file_attributes & S_IROTH ) {
+                $member_info .= 'r';
+            }
+            else {
+                $member_info .= '-';
+            }
+            if ( $unix_file_attributes & S_IWOTH ) {
+                $member_info .= 'w';
+            }
+            else {
+                $member_info .= '-';
+            }
+            if ( $unix_file_attributes & S_IXOTH ) {
+                $member_info .= 'x';
+            }
+            else {
+                $member_info .= '-';
+            }
+        }
+        $member_info .= "  $version ";
+        if ( $file_attribute_format == FA_MSDOS ) {
+            $member_info .= 'fat ';
+        }
+        else {
+            $member_info .= 'unx ';
+        }
+        $member_info .= sprintf '%8d ', $uncompressed_size;
+        if ( $member->isTextFile() ) {
+            $member_info .= 't';
+        }
+        else {
+            $member_info .= 'b';
+        }
+        if ( $extra_field ne q{} ) {
+            $member_info .= 'x ';
+        }
+        else {
+            $member_info .= '- ';
+        }
+        if ( $member->compressionMethod() == COMPRESSION_STORED ) {
+            $member_info .= 'stor ';
+        }
+        else {
+            $member_info .= 'defN ';
+        }
+        $member_info .= "$last_mod_time $member_name";
+
+        print $member_info, "\n";
+    }
+
+    my $compress_ratio = 0.0;
+    if ($total_uncompressed_size) {
+        $compress_ratio = 58.5;
+    }
+
+    my $format = '%d file%s, %d bytes uncompressed, '
+        . "%d bytes compressed:  %.1f%%\n";
+    printf $format, $nr_entries, ($nr_entries >= 2) ? 's' : q{},
+        $total_uncompressed_size, $total_compressed_size, $compress_ratio;
+
+    return 1;
+}
+
+sub unzip {
     my ( $archive_name, $arg_ref ) = @_;
     my $files_ref        = $arg_ref->{files};
     my $xfiles_ref       = $arg_ref->{xfiles};
@@ -196,7 +373,7 @@ sub extract_archive {
     my $quiet            = $arg_ref->{quiet};
 
     if ( !$pipe && !$quiet ) {
-        print "Archive:  $archive_name\n";
+        print_archive_name($archive_name);
     }
 
     my $zip = Archive::Zip->new();
@@ -413,7 +590,7 @@ CHECK:
         my $format = "%9u  %s   %s\n";
         printf $format,
             $member->uncompressedSize(),
-            strftime( "%F %R", localtime $member->lastModTime() ),
+            strftime( '%F %R', localtime $member->lastModTime() ),
             $extracted_name;
 
         if ( !$quiet ) {
