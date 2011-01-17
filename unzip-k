@@ -498,24 +498,24 @@ sub extract_member {
     }
 
     # Check existing file or directory
-CHECK:
+CHECKING:
     while ( !$crt && !$list && !$pipe && !$test && -e $extracted_name ) {
         return if defined ${$replace_ref} && ${$replace_ref} eq 'None';
 
         return if -d $extracted_name && $member->isDirectory();
 
-        last CHECK if defined ${$replace_ref} && ${$replace_ref} eq 'All';
+        last CHECKING if defined ${$replace_ref} && ${$replace_ref} eq 'All';
 
         my $response = get_response_for($extracted_name);
         if ( $response eq 'yes' ) {
-            last CHECK;
+            last CHECKING;
         }
         elsif ( $response eq 'no' ) {
             return;
         }
         elsif ( $response eq 'All' ) {
             ${$replace_ref} = 'All';
-            last CHECK;
+            last CHECKING;
         }
         elsif ( $response eq 'None' ) {
             ${$replace_ref} = 'None';
@@ -622,7 +622,7 @@ sub get_response_for {
     my $prompt
         = "replace $extracted_name? [y]es, [n]o, [A]ll, [N]one, [r]ename: ";
 
-    while ( my $response = prompt $prompt, -tty ) {
+    while ( my $response = prompt $prompt ) {
         if ( $response =~ $pattern_for{yes} ) {
             return 'yes';
         }
@@ -656,13 +656,15 @@ sub get_new_name {
     my $prompt = 'new name: ';
 
     while (1) {
-        my $new_name = prompt $prompt, -tty;
+        my $new_name = prompt $prompt;
         if ( defined $new_name && $new_name ne q{} ) {
 
             # Warning: $new_name is an object, not a string.
             return "$new_name";
         }
     }
+
+    return 'noname';    # Cannot happen.
 }
 
 sub print_progress_using {
@@ -937,6 +939,8 @@ unzip-k -C source.zip "*.[fch]" makefile -d /tmp
 =item C<IO::Prompt>
 
 =item C<File::Glob>
+
+=item C<Fcntl>
 
 =back
 
