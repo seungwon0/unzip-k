@@ -135,7 +135,7 @@ my $nr_success = 0;
 
 for my $archive (@archives) {
     if ($zipinfo) {
-        if ( zipinfo($archive) ) {
+        if ( zipinfo( $archive, $zipinfo_time ) ) {
             $nr_success++;
         }
     }
@@ -249,7 +249,7 @@ sub get_unix_file_attr_string {
 }
 
 sub get_member_info {
-    my ($member) = @_;
+    my ( $member, $zipinfo_time ) = @_;
 
     my $member_info;
 
@@ -318,7 +318,8 @@ sub get_member_info {
 
     print {$fh} q{ };
 
-    print {$fh} strftime( '%Y%m%d.%H%M%S', localtime $member->lastModTime() );
+    my $format = $zipinfo_time ? '%Y%m%d.%H%M%S' : '%g-%b-%d %H:%M';
+    print {$fh} strftime( $format, localtime $member->lastModTime() );
 
     print {$fh} q{ };
 
@@ -330,7 +331,7 @@ sub get_member_info {
 }
 
 sub zipinfo {
-    my ($archive_name) = @_;
+    my ( $archive_name, $zipinfo_time ) = @_;
 
     print_archive_name($archive_name);
 
@@ -351,7 +352,7 @@ sub zipinfo {
         $total_uncompressed_size += $member->uncompressedSize();
         $total_compressed_size   += $member->compressedSize();
 
-        my $member_info = get_member_info($member);
+        my $member_info = get_member_info( $member, $zipinfo_time );
         print "$member_info\n";
     }
 
