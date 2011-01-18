@@ -56,10 +56,7 @@ use Fcntl qw( :mode );
 my @xfiles;
 
 Getopt::Long::Configure('pass_through');
-if ( !GetOptions( 'x=s{1,}' => \@xfiles ) ) {
-    print_usage();
-    exit 1;
-}
+GetOptions( 'x=s{1,}' => \@xfiles ) or do { print_usage(); exit 1; };
 
 my $exdir;
 my $crt;
@@ -100,10 +97,7 @@ my @args = (
     'q' => \$quiet,
     'W' => \$strict_wildcard_slash,
 );
-if ( !GetOptions(@args) ) {
-    print_usage();
-    exit 1;
-}
+GetOptions(@args) or do { print_usage(); exit 1; };
 
 if ( !$strict_wildcard_slash ) {
     $Text::Glob::strict_wildcard_slash = 0;
@@ -116,7 +110,7 @@ if ( @ARGV < 1 ) {
 
 my ( $file, @files ) = @ARGV;
 
-undef @ARGV;    # For caution's sake
+undef @ARGV;    # For IO::Prompt
 
 my $arg_ref = {
     files            => \@files,
@@ -134,6 +128,7 @@ my $arg_ref = {
     quiet            => $quiet,
 };
 
+# Do not use glob here because $file may contain space character.
 my @archives = bsd_glob($file);
 
 my $nr_success = 0;
@@ -207,14 +202,19 @@ sub get_dos_file_attr_string {
 
     my $dos_file_attr_string;
 
+    # Open file handle to "in memory" file held in Perl scalar
+    open my $fh, '>', \$dos_file_attr_string or die;
+
     # See zipinfo.c in unzip
-    $dos_file_attr_string .= 'r';
-    $dos_file_attr_string .= ( $external_file_attr & 0x01 ) ? '-' : 'w';
-    $dos_file_attr_string .= ( $external_file_attr & 0x10 ) ? 'x' : '-';
-    $dos_file_attr_string .= ( $external_file_attr & 0x20 ) ? 'a' : '-';
-    $dos_file_attr_string .= ( $external_file_attr & 0x02 ) ? 'h' : '-';
-    $dos_file_attr_string .= ( $external_file_attr & 0x04 ) ? 's' : '-';
-    $dos_file_attr_string .= '   ';
+    print {$fh} 'r';
+    print {$fh} $external_file_attr & 0x01 ? '-' : 'w';
+    print {$fh} $external_file_attr & 0x10 ? 'x' : '-';
+    print {$fh} $external_file_attr & 0x20 ? 'a' : '-';
+    print {$fh} $external_file_attr & 0x02 ? 'h' : '-';
+    print {$fh} $external_file_attr & 0x04 ? 's' : '-';
+    print {$fh} q{ } x 3;
+
+    close $fh;
 
     return $dos_file_attr_string;
 }
@@ -225,20 +225,25 @@ sub get_unix_file_attr_string {
 
     my $unix_file_attr_string;
 
+    # Open file handle to "in memory" file held in Perl scalar
+    open my $fh, '>', \$unix_file_attr_string or die;
+
     # User
-    $unix_file_attr_string .= ( $unix_file_attr & S_IRUSR ) ? 'r' : '-';
-    $unix_file_attr_string .= ( $unix_file_attr & S_IWUSR ) ? 'w' : '-';
-    $unix_file_attr_string .= ( $unix_file_attr & S_IXUSR ) ? 'x' : '-';
+    print {$fh} $unix_file_attr & S_IRUSR ? 'r' : '-';
+    print {$fh} $unix_file_attr & S_IWUSR ? 'w' : '-';
+    print {$fh} $unix_file_attr & S_IXUSR ? 'x' : '-';
 
     # Group
-    $unix_file_attr_string .= ( $unix_file_attr & S_IRGRP ) ? 'r' : '-';
-    $unix_file_attr_string .= ( $unix_file_attr & S_IWGRP ) ? 'w' : '-';
-    $unix_file_attr_string .= ( $unix_file_attr & S_IXGRP ) ? 'x' : '-';
+    print {$fh} $unix_file_attr & S_IRGRP ? 'r' : '-';
+    print {$fh} $unix_file_attr & S_IWGRP ? 'w' : '-';
+    print {$fh} $unix_file_attr & S_IXGRP ? 'x' : '-';
 
     # Other
-    $unix_file_attr_string .= ( $unix_file_attr & S_IROTH ) ? 'r' : '-';
-    $unix_file_attr_string .= ( $unix_file_attr & S_IWOTH ) ? 'w' : '-';
-    $unix_file_attr_string .= ( $unix_file_attr & S_IXOTH ) ? 'x' : '-';
+    print {$fh} $unix_file_attr & S_IROTH ? 'r' : '-';
+    print {$fh} $unix_file_attr & S_IWOTH ? 'w' : '-';
+    print {$fh} $unix_file_attr & S_IXOTH ? 'x' : '-';
+
+    close $fh;
 
     return $unix_file_attr_string;
 }
@@ -248,60 +253,78 @@ sub get_member_info {
 
     my $member_info;
 
-    $member_info .= $member->isDirectory() ? 'd' : '-';
+    # Open file handle to "in memory" file held in Perl scalar
+    open my $fh, '>', \$member_info or die;
+
+    print {$fh} $member->isDirectory() ? 'd' : '-';
 
     my $file_attribute_format = $member->fileAttributeFormat();
 
     if ( $file_attribute_format == FA_MSDOS ) {
         my $external_file_attr = $member->externalFileAttributes();
-        $member_info .= get_dos_file_attr_string($external_file_attr);
+        print {$fh} get_dos_file_attr_string($external_file_attr);
     }
     else {
         my $unix_file_attr = $member->unixFileAttributes();
-        $member_info .= get_unix_file_attr_string($unix_file_attr);
+        print {$fh} get_unix_file_attr_string($unix_file_attr);
     }
 
-    my $version = $member->versionMadeBy();
-    $member_info .= sprintf '  %.1f ', $version / 10;    # e.g. 20 -> 2.0
+    print {$fh} q{ } x 2;
 
-    $member_info .= ( $file_attribute_format == FA_MSDOS ) ? 'fat ' : 'unx ';
+    # e.g. 20 -> 2.0
+    print {$fh} sprintf '%.1f', $member->versionMadeBy() / 10;
 
-    $member_info .= sprintf '%8d ', $member->uncompressedSize();
+    print {$fh} q{ };
+
+    print {$fh} $file_attribute_format == FA_MSDOS ? 'fat' : 'unx';
+
+    print {$fh} q{ };
+
+    print {$fh} sprintf '%8d', $member->uncompressedSize();
+
+    print {$fh} q{ };
 
     if ( $member->isEncrypted() ) {
-        $member_info .= ( $member->isTextFile() ) ? 'T' : 'B';
+        print {$fh} $member->isTextFile() ? 'T' : 'B';
     }
     else {
-        $member_info .= ( $member->isTextFile() ) ? 't' : 'b';
+        print {$fh} $member->isTextFile() ? 't' : 'b';
     }
 
-    $member_info .= ( $member->extraFields() ne q{} ) ? 'x ' : '- ';
+    print {$fh} $member->extraFields() ne q{} ? 'x' : '-';
+
+    print {$fh} q{ };
 
     if ( $member->compressionMethod() == COMPRESSION_STORED ) {
-        $member_info .= 'stor ';
+        print {$fh} 'stor';
     }
     else {
         my $deflating_level
             = $member->bitFlag() & GPBF_DEFLATING_COMPRESSION_MASK;
 
         if ( $deflating_level == DEFLATING_COMPRESSION_SUPER_FAST ) {
-            $member_info .= 'defS ';
+            print {$fh} 'defS';
         }
         elsif ( $deflating_level == DEFLATING_COMPRESSION_FAST ) {
-            $member_info .= 'defF ';
+            print {$fh} 'defF';
         }
         elsif ( $deflating_level == DEFLATING_COMPRESSION_NORMAL ) {
-            $member_info .= 'defN ';
+            print {$fh} 'defN';
         }
         else {
-            $member_info .= 'defX ';
+            print {$fh} 'defX';
         }
     }
 
-    my $last_mod_time_string
-        = strftime( '%Y%m%d.%H%M%S', localtime $member->lastModTime() );
-    my $member_name = $member->fileName();
-    $member_info .= "$last_mod_time_string $member_name";
+    print {$fh} q{ };
+
+    print {$fh} strftime( '%Y%m%d.%H%M%S', localtime $member->lastModTime() );
+
+    print {$fh} q{ };
+
+    print {$fh} $member->fileName();
+
+    close $fh;
 
     return $member_info;
 }
@@ -314,7 +337,6 @@ sub zipinfo {
     my $archive_size = -s $archive_name;
 
     my $zip = Archive::Zip->new();
-
     $zip->read($archive_name) == AZ_OK or return;
 
     my $nr_entries = $zip->numberOfMembers();
@@ -344,7 +366,7 @@ sub zipinfo {
 
     my $format = '%d file%s, %d bytes uncompressed, '
         . "%d bytes compressed:  %.1f%%\n";
-    printf $format, $nr_entries, ( $nr_entries >= 2 ) ? 's' : q{},
+    printf $format, $nr_entries, $nr_entries == 1 ? q{} : 's',
         $total_uncompressed_size, $total_compressed_size, $compression_ratio;
 
     return 1;
@@ -371,19 +393,15 @@ sub unzip {
     }
 
     my $zip = Archive::Zip->new();
-
     $zip->read($archive_name) == AZ_OK or return;
 
     my %matched_file;
     my %matched_xfile;
 
-    my $replace;
-    if ($never_overwrite) {
-        $replace = 'None';
-    }
-    elsif ($overwrite) {
-        $replace = 'All';
-    }
+    my $replace
+        = $never_overwrite ? 'None'
+        : $overwrite       ? 'All'
+        :                    undef;
 
     my $total_length = 0;
     my $total_count  = 0;
@@ -423,11 +441,7 @@ MEMBER:
     for my $member ( $zip->members() ) {
         my $member_name = decode_name_of($member);
 
-        if ($junk_paths) {
-            if ( $member->isDirectory() ) {
-                next MEMBER;
-            }
-        }
+        next MEMBER if $junk_paths && $member->isDirectory();
 
         # Check archive members to be excluded from processing
         if ( @{$xfiles_ref} ) {
@@ -472,10 +486,10 @@ MEMBER:
 
         # Print list footer
         print "---------                     -------\n";
-        my $format = "%9u                     %u %s\n";
+        my $format = "%9u                     %u file%s\n";
         printf $format,
             $total_length, $total_count,
-            $total_count == 1 ? "file" : "files";
+            $total_count == 1 ? q{} : 's';
     }
 
     # print caution about unmatched filenames
