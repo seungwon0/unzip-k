@@ -323,7 +323,7 @@ sub get_member_info {
 
     print {$fh} q{ };
 
-    print {$fh} $member->fileName();
+    print {$fh} decode_name_of($member);
 
     close $fh;
 
