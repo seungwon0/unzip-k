@@ -58,6 +58,7 @@ my @xfiles;
 Getopt::Long::Configure('pass_through');
 GetOptions( 'x=s{1,}' => \@xfiles ) or do { print_usage(); exit 1; };
 
+# UnZip mode
 my $exdir;
 my $crt;
 my $list;
@@ -70,7 +71,9 @@ my $never_overwrite;
 my $overwrite;
 my $quiet;
 my $strict_wildcard_slash;
+my $update;
 
+# ZipInfo mode
 my $zipinfo;
 my $zipinfo_time;
 my $zipinfo_short;
@@ -88,6 +91,7 @@ my @args = (
     'T' => \$zipinfo_time,
     's' => \$zipinfo_short,
     'z' => \$comment_only,
+    'u' => \$update,
 
     # Modifiers
     'C' => \$case_insensitive,
@@ -169,14 +173,15 @@ die "unzip-k:  cannot find or open $file, $file.zip or $file.ZIP.\n";
 
 sub print_usage {
     print <<'END_USAGE';
-UnZip-K 1.0 of 18 January 2011, by Seungwon Jeong.
+UnZip-K 1.0 of 19 January 2011, by Seungwon Jeong.
 
-Usage: unzip-k [-opts[modifiers]] file[.zip] [list] [-x xlist] [-d exdir]
+Usage: unzip-k [-Z] [-opts[modifiers]] file[.zip] [list] [-x xlist] [-d exdir]
   Default action is to extract files in list, except those in xlist, to exdir;
-  file[.zip] may be a wildcard.
+  file[.zip] may be a wildcard.  -Z => ZipInfo mode ("unzip -Z" for usage).
 
   -p  extract files to pipe, no messages     -l  list files
-  -t  test compressed archive data           -z  display archive comment only
+                                             -t  test compressed archive data
+  -u  update files, create if necessary      -z  display archive comment only
   -x  exclude files that follow (in xlist)   -d  extract files into exdir
 modifiers:
   -n  never overwrite existing files         -q  quiet mode
@@ -740,7 +745,8 @@ directory name encoded in Microsoft's CP949
 
 =head1 SYNOPSIS
 
-B<unzip-k> [B<-clptz>[B<jnoqCW>]] F<file>[F<.zip>] [F<file(s)>] [-x F<xfile(s)> ...] [-d F<exdir>]
+B<unzip-k>  [B<-Z>] [B<-clptuz>[B<jnoqCW>]] F<file>[F<.zip>] [F<file(s)> ...]
+[-x F<xfile(s)> ...] [-d F<exdir>]
 
 =head1 DESCRIPTION
 
@@ -832,6 +838,12 @@ direc‐ tory.
 
 =over
 
+=item B<-Z>
+
+I<zipinfo>(1) mode.  If the first option on the command line is -Z,
+The remaining options are taken to be I<zipinfo>(1) options.  See the
+appropriate manual page for a description of these options.
+
 =item B<-c>
 
 extract files to stdout/screen (``CRT'').  This option is similar to
@@ -857,6 +869,11 @@ test archive files.  This option extracts each specified file in
 memory and compares the CRC (cyclic redundancy check, an enhanced
 checksum) of the expanded file with the original file's stored CRC
 value.
+
+=item B<-u>
+
+update existing files and create new ones if needed. This is the
+default behavior of I<unzip-k>.
 
 =item B<-z>
 
