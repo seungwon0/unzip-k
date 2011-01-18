@@ -35,7 +35,7 @@ use strict;
 
 use warnings;
 
-use Archive::Zip qw( :ERROR_CODES :CONSTANTS );
+use Archive::Zip qw( :ERROR_CODES :CONSTANTS :MISC_CONSTANTS );
 
 use Encode;
 
@@ -202,6 +202,23 @@ sub print_archive_name {
     return;
 }
 
+sub get_dos_file_attr_string {
+    my ($external_file_attr) = @_;
+
+    my $dos_file_attr_string;
+
+    # See zipinfo.c in unzip
+    $dos_file_attr_string .= 'r';
+    $dos_file_attr_string .= ( $external_file_attr & 0x01 ) ? '-' : 'w';
+    $dos_file_attr_string .= ( $external_file_attr & 0x10 ) ? 'x' : '-';
+    $dos_file_attr_string .= ( $external_file_attr & 0x20 ) ? 'a' : '-';
+    $dos_file_attr_string .= ( $external_file_attr & 0x02 ) ? 'h' : '-';
+    $dos_file_attr_string .= ( $external_file_attr & 0x04 ) ? 's' : '-';
+    $dos_file_attr_string .= '   ';
+
+    return $dos_file_attr_string;
+}
+
 # oct('0755') => rwxr-xr-x
 sub get_unix_file_attr_string {
     my $unix_file_attr = shift() & oct('0777');
@@ -229,45 +246,61 @@ sub get_unix_file_attr_string {
 sub get_member_info {
     my ($member) = @_;
 
-    my $file_attribute_format = $member->fileAttributeFormat();
-
-    my $version = $member->versionMadeBy();
-    $version =~ s/^(\d)/$1\./xms;    # 20 -> 2.0
-
-    my $extra_field = $member->extraFields();
-
-    my $last_mod_time_string
-        = strftime( '%Y%m%d.%H%M%S', localtime $member->lastModTime() );
-
-    my $member_name = $member->fileName();
-
     my $member_info;
 
     $member_info .= $member->isDirectory() ? 'd' : '-';
 
+    my $file_attribute_format = $member->fileAttributeFormat();
+
     if ( $file_attribute_format == FA_MSDOS ) {
-        $member_info .= 'rw-a--   ';    # FIXIT
+        my $external_file_attr = $member->externalFileAttributes();
+        $member_info .= get_dos_file_attr_string($external_file_attr);
     }
     else {
         my $unix_file_attr = $member->unixFileAttributes();
         $member_info .= get_unix_file_attr_string($unix_file_attr);
     }
 
-    $member_info .= "  $version ";
+    my $version = $member->versionMadeBy();
+    $member_info .= sprintf '  %.1f ', $version / 10;    # e.g. 20 -> 2.0
 
     $member_info .= ( $file_attribute_format == FA_MSDOS ) ? 'fat ' : 'unx ';
 
     $member_info .= sprintf '%8d ', $member->uncompressedSize();
 
-    $member_info .= ( $member->isTextFile() ) ? 't' : 'b';
+    if ( $member->isEncrypted() ) {
+        $member_info .= ( $member->isTextFile() ) ? 'T' : 'B';
+    }
+    else {
+        $member_info .= ( $member->isTextFile() ) ? 't' : 'b';
+    }
 
-    $member_info .= ( $extra_field ne q{} ) ? 'x ' : '- ';
+    $member_info .= ( $member->extraFields() ne q{} ) ? 'x ' : '- ';
 
-    $member_info .=
-        ( $member->compressionMethod() == COMPRESSION_STORED )
-        ? 'stor '
-        : 'defN ';
+    if ( $member->compressionMethod() == COMPRESSION_STORED ) {
+        $member_info .= 'stor ';
+    }
+    else {
+        my $deflating_level
+            = $member->bitFlag() & GPBF_DEFLATING_COMPRESSION_MASK;
 
+        if ( $deflating_level == DEFLATING_COMPRESSION_SUPER_FAST ) {
+            $member_info .= 'defS ';
+        }
+        elsif ( $deflating_level == DEFLATING_COMPRESSION_FAST ) {
+            $member_info .= 'defF ';
+        }
+        elsif ( $deflating_level == DEFLATING_COMPRESSION_NORMAL ) {
+            $member_info .= 'defN ';
+        }
+        else {
+            $member_info .= 'defX ';
+        }
+    }
+
+    my $last_mod_time_string
+        = strftime( '%Y%m%d.%H%M%S', localtime $member->lastModTime() );
+    my $member_name = $member->fileName();
     $member_info .= "$last_mod_time_string $member_name";
 
     return $member_info;
@@ -306,7 +339,7 @@ sub zipinfo {
             = $total_uncompressed_size - $total_compressed_size;
         $compression_ratio /= $total_uncompressed_size;
         $compression_ratio *= 100;
-        $compression_ratio += 0.05;    # For compatibility with unzip
+        $compression_ratio += 0.04;    # For compatibility with unzip
     }
 
     my $format = '%d file%s, %d bytes uncompressed, '
