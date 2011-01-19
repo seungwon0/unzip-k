@@ -128,6 +128,7 @@ my $arg_ref = {
     test             => $test,
     comment_only     => $comment_only,
     fresh            => $fresh,
+    update           => $update,
     case_insensitive => $case_insensitive,
     junk_paths       => $junk_paths,
     never_overwrite  => $never_overwrite,
@@ -393,6 +394,7 @@ sub unzip {
     my $test             = $arg_ref->{test};
     my $comment_only     = $arg_ref->{comment_only};
     my $fresh            = $arg_ref->{fresh};
+    my $update           = $arg_ref->{update};
     my $case_insensitive = $arg_ref->{case_insensitive};
     my $junk_paths       = $arg_ref->{junk_paths};
     my $never_overwrite  = $arg_ref->{never_overwrite};
@@ -445,6 +447,7 @@ sub unzip {
         pipe       => $pipe,
         test       => $test,
         fresh      => $fresh,
+        update     => $update,
         error      => \$error_in_archive,
         junk_paths => $junk_paths,
     };
@@ -539,6 +542,8 @@ sub extract_member {
     my $list        = $arg_ref->{list};
     my $pipe        = $arg_ref->{pipe};
     my $test        = $arg_ref->{test};
+    my $fresh       = $arg_ref->{fresh};
+    my $update      = $arg_ref->{update};
     my $error_ref   = $arg_ref->{error};
     my $junk_paths  = $arg_ref->{junk_paths};
 
@@ -556,9 +561,15 @@ sub extract_member {
         }
     }
 
-    if ($fresh) {
-        return if !-e $extracted_name;
+    if ( $fresh && !$update ) {
 
+        # Skip non-existing file
+        return if !-e $extracted_name;
+    }
+
+    if ( ( $fresh || $update ) && -e $extracted_name ) {
+
+        # Skip newer file
         return if $member->lastModTime() <= ( stat $extracted_name )[9];
     }
 
