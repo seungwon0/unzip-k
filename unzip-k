@@ -1026,6 +1026,20 @@ similar):
 
 unzip-k -C source.zip "*.[fch]" makefile -d /tmp
 
+To extract only newer versions of the files already in the current
+directory, without querying (NOTE: be careful of unzipping in one
+timezone a zipfile created in another--ZIP archives other than those
+created by Zip 2.1 or later contain no timezone information, and a
+``newer'' file from an eastern timezone may, in fact, be older):
+
+unzip -fo sources
+
+To extract newer versions of the files already in the current
+directory and to create any files not already there (same caveat as
+previous example):
+
+unzip -uo sources
+
 =head1 DEPENDENCIES
 
 =over
