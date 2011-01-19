@@ -180,7 +180,7 @@ Usage: unzip-k [-Z] [-opts[modifiers]] file[.zip] [list] [-x xlist] [-d exdir]
   file[.zip] may be a wildcard.  -Z => ZipInfo mode ("unzip -Z" for usage).
 
   -p  extract files to pipe, no messages     -l  list files
-                                             -t  test compressed archive data
+  -f  freshen existing files, create none    -t  test compressed archive data
   -u  update files, create if necessary      -z  display archive comment only
   -x  exclude files that follow (in xlist)   -d  extract files into exdir
 modifiers:
@@ -189,8 +189,9 @@ modifiers:
   -j  junk paths (do not make directories)
   -C  match filenames case-insensitively
 Examples:
-  unzip-k data1 -x joe   => extract all files except joe from zipfile data1.zip
-  unzip-k -p foo | more  => send contents of foo.zip via pipe into program more
+  unzip-k data1 -x joe  => extract all files except joe from zipfile data1.zip
+  unzip-k -p foo | more => send contents of foo.zip via pipe into program more
+  unzip-k -fo foo bar   => quietly replace existing bar if archive file newer
 END_USAGE
     return;
 }
@@ -849,6 +850,21 @@ appropriate manual page for a description of these options.
 extract files to stdout/screen (``CRT'').  This option is similar to
 the -p option except that the name of each file is printed as it is
 extracted.  This option is not listed in the unzip-k usage screen.
+
+=item B<-f>
+
+freshen existing files, i.e., extract only those files that already
+exist on disk and that are newer than the disk copies.  By default
+I<unzip-k> queries before overwriting, but the -o option may be used
+to suppress the queries.  Note that under many operating systems, the
+TZ (timezone) environment variable must be set correctly in order for
+-f and -u to work properly (under Unix the variable is usually set
+automatically).  The reasons for this are somewhat subtle but have to
+do with the differences between DOS-format file times (always local
+time) and Unix-format times (always in GMT/UTC) and the necessity to
+compare the two.  A typical TZ value is ``PST8PDT'' (US Pacific time
+with automatic adjustment for Daylight Savings Time or ``summer
+time'').
 
 =item B<-l>
 
