@@ -53,132 +53,6 @@ use File::Glob qw( :glob );
 
 use Fcntl qw( :mode );
 
-my @xfiles;
-
-Getopt::Long::Configure('pass_through');
-GetOptions( 'x=s{1,}' => \@xfiles ) or do { print_usage(); exit 1; };
-
-# UnZip mode
-my $exdir;
-my $crt;
-my $list;
-my $pipe;
-my $test;
-my $comment_only;
-my $case_insensitive;
-my $junk_paths;
-my $never_overwrite;
-my $overwrite;
-my $quiet;
-my $strict_wildcard_slash;
-my $fresh;
-my $update;
-
-# ZipInfo mode
-my $zipinfo;
-my $zipinfo_time;
-my $zipinfo_short;
-
-Getopt::Long::Configure( 'no_pass_through', 'bundling' );
-my @args = (
-    'd=s' => \$exdir,
-
-    # Options
-    'Z' => \$zipinfo,
-    'c' => \$crt,
-    'l' => \$list,
-    'p' => \$pipe,
-    't' => \$test,
-    'T' => \$zipinfo_time,
-    's' => \$zipinfo_short,
-    'z' => \$comment_only,
-    'f' => \$fresh,
-    'u' => \$update,
-
-    # Modifiers
-    'C' => \$case_insensitive,
-    'j' => \$junk_paths,
-    'n' => \$never_overwrite,
-    'o' => \$overwrite,
-    'q' => \$quiet,
-    'W' => \$strict_wildcard_slash,
-);
-GetOptions(@args) or do { print_usage(); exit 1; };
-
-if ( !$strict_wildcard_slash ) {
-    $Text::Glob::strict_wildcard_slash = 0;
-}
-
-if ( @ARGV < 1 ) {
-    print_usage();
-    exit;
-}
-
-my ( $file, @files ) = @ARGV;
-
-undef @ARGV;    # For IO::Prompt
-
-my $arg_ref = {
-    files            => \@files,
-    xfiles           => \@xfiles,
-    exdir            => $exdir,
-    crt              => $crt,
-    list             => $list,
-    pipe             => $pipe,
-    test             => $test,
-    comment_only     => $comment_only,
-    fresh            => $fresh,
-    update           => $update,
-    case_insensitive => $case_insensitive,
-    junk_paths       => $junk_paths,
-    never_overwrite  => $never_overwrite,
-    overwrite        => $overwrite,
-    quiet            => $quiet,
-};
-
-# Escape meta characters
-# [, ], {, } => \[, \], \{, \},
-$file =~ s/(?<meta>[\[\]{}])/\\$+{meta}/xmsg;
-
-# Do not use glob here because $file may contain space character.
-my @archives = bsd_glob($file);
-
-my $nr_success = 0;
-
-for my $archive (@archives) {
-    if ($zipinfo) {
-        if ( zipinfo( $archive, $zipinfo_time ) ) {
-            $nr_success++;
-        }
-    }
-    else {
-        if ( unzip( $archive, $arg_ref ) ) {
-            $nr_success++;
-        }
-    }
-
-    if ( @archives > 1 ) {
-        print "\n";
-    }
-}
-
-if ($nr_success) {
-    if ( $nr_success > 1 ) {
-        print "$nr_success archives were successfully processed.\n";
-    }
-
-    exit;
-}
-
-# Try to append .zip or .ZIP suffix
-for my $assumption ( "$file.zip", "$file.ZIP" ) {
-    if ( -f $assumption ) {
-        unzip( $assumption, $arg_ref ) and exit;
-    }
-}
-
-die "unzip-k:  cannot find or open $file, $file.zip or $file.ZIP.\n";
-
 sub print_usage {
     print <<'END_USAGE';
 UnZip-K 1.0 of 19 January 2011, by Seungwon Jeong.
@@ -454,6 +328,7 @@ sub unzip {
         update     => $update,
         error      => \$error_in_archive,
         junk_paths => $junk_paths,
+	quiet      => $quiet,
     };
 
 MEMBER:
@@ -550,6 +425,7 @@ sub extract_member {
     my $update      = $arg_ref->{update};
     my $error_ref   = $arg_ref->{error};
     my $junk_paths  = $arg_ref->{junk_paths};
+    my $quiet       = $arg_ref->{quiet};
 
     # Get file name to be extracted
     my $extracted_name = decode_name_of($member);
@@ -762,6 +638,132 @@ sub print_progress_using {
 
     return;
 }
+
+my @xfiles;
+
+Getopt::Long::Configure('pass_through');
+GetOptions( 'x=s{1,}' => \@xfiles ) or do { print_usage(); exit 1; };
+
+# UnZip mode
+my $exdir;
+my $crt;
+my $list;
+my $pipe;
+my $test;
+my $comment_only;
+my $case_insensitive;
+my $junk_paths;
+my $never_overwrite;
+my $overwrite;
+my $quiet;
+my $strict_wildcard_slash;
+my $fresh;
+my $update;
+
+# ZipInfo mode
+my $zipinfo;
+my $zipinfo_time;
+my $zipinfo_short;
+
+Getopt::Long::Configure( 'no_pass_through', 'bundling' );
+my @args = (
+    'd=s' => \$exdir,
+
+    # Options
+    'Z' => \$zipinfo,
+    'c' => \$crt,
+    'l' => \$list,
+    'p' => \$pipe,
+    't' => \$test,
+    'T' => \$zipinfo_time,
+    's' => \$zipinfo_short,
+    'z' => \$comment_only,
+    'f' => \$fresh,
+    'u' => \$update,
+
+    # Modifiers
+    'C' => \$case_insensitive,
+    'j' => \$junk_paths,
+    'n' => \$never_overwrite,
+    'o' => \$overwrite,
+    'q' => \$quiet,
+    'W' => \$strict_wildcard_slash,
+);
+GetOptions(@args) or do { print_usage(); exit 1; };
+
+if ( !$strict_wildcard_slash ) {
+    $Text::Glob::strict_wildcard_slash = 0;
+}
+
+if ( @ARGV < 1 ) {
+    print_usage();
+    exit;
+}
+
+my ( $file, @files ) = @ARGV;
+
+undef @ARGV;    # For IO::Prompt
+
+my $arg_ref = {
+    files            => \@files,
+    xfiles           => \@xfiles,
+    exdir            => $exdir,
+    crt              => $crt,
+    list             => $list,
+    pipe             => $pipe,
+    test             => $test,
+    comment_only     => $comment_only,
+    fresh            => $fresh,
+    update           => $update,
+    case_insensitive => $case_insensitive,
+    junk_paths       => $junk_paths,
+    never_overwrite  => $never_overwrite,
+    overwrite        => $overwrite,
+    quiet            => $quiet,
+};
+
+# Escape meta characters
+# [, ], {, } => \[, \], \{, \},
+$file =~ s/(?<meta>[\[\]{}])/\\$+{meta}/xmsg;
+
+# Do not use glob here because $file may contain space character.
+my @archives = bsd_glob($file);
+
+my $nr_success = 0;
+
+for my $archive (@archives) {
+    if ($zipinfo) {
+        if ( zipinfo( $archive, $zipinfo_time ) ) {
+            $nr_success++;
+        }
+    }
+    else {
+        if ( unzip( $archive, $arg_ref ) ) {
+            $nr_success++;
+        }
+    }
+
+    if ( @archives > 1 ) {
+        print "\n";
+    }
+}
+
+if ($nr_success) {
+    if ( $nr_success > 1 ) {
+        print "$nr_success archives were successfully processed.\n";
+    }
+
+    exit;
+}
+
+# Try to append .zip or .ZIP suffix
+for my $assumption ( "$file.zip", "$file.ZIP" ) {
+    if ( -f $assumption ) {
+        unzip( $assumption, $arg_ref ) and exit;
+    }
+}
+
+die "unzip-k:  cannot find or open $file, $file.zip or $file.ZIP.\n";
 
 __END__
 
