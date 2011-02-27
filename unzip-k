@@ -136,6 +136,10 @@ my $arg_ref = {
     quiet            => $quiet,
 };
 
+# Escape meta characters
+# [, ], {, } => \[, \], \{, \},
+$file =~ s/(?<meta>[\[\]{}])/\\$+{meta}/xmsg;
+
 # Do not use glob here because $file may contain space character.
 my @archives = bsd_glob($file);
 
