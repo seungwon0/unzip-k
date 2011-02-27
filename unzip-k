@@ -37,6 +37,8 @@ use warnings;
 
 use 5.010;
 
+use autodie;
+
 use Archive::Zip qw< :ERROR_CODES :CONSTANTS :MISC_CONSTANTS >;
 
 use Encode qw< encode_utf8 decode >;
@@ -93,7 +95,7 @@ sub get_dos_file_attr_string {
     my $dos_file_attr_string;
 
     # Open file handle to "in memory" file held in Perl scalar
-    open my $fh, '>', \$dos_file_attr_string or die 'open failed';
+    open my $fh, '>', \$dos_file_attr_string;
 
     # See zipinfo.c in unzip
     print {$fh} 'r';
@@ -116,7 +118,7 @@ sub get_unix_file_attr_string {
     my $unix_file_attr_string;
 
     # Open file handle to "in memory" file held in Perl scalar
-    open my $fh, '>', \$unix_file_attr_string or die 'open failed';
+    open my $fh, '>', \$unix_file_attr_string;
 
     # User
     print {$fh} $unix_file_attr & S_IRUSR ? 'r' : '-';
@@ -144,7 +146,7 @@ sub get_member_info {
     my $member_info;
 
     # Open file handle to "in memory" file held in Perl scalar
-    open my $fh, '>', \$member_info or die 'open failed';
+    open my $fh, '>', \$member_info;
 
     print {$fh} $member->isDirectory() ? 'd' : '-';
 
