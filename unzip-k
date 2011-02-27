@@ -35,6 +35,8 @@ use strict;
 
 use warnings;
 
+use 5.010;
+
 use Archive::Zip qw< :ERROR_CODES :CONSTANTS :MISC_CONSTANTS >;
 
 use Encode qw< encode_utf8 decode >;
@@ -81,7 +83,7 @@ END_USAGE
 sub print_archive_name {
     my ($archive_name) = @_;
 
-    print "Archive:  $archive_name\n";
+    say "Archive:  $archive_name";
     return;
 }
 
@@ -230,8 +232,7 @@ sub zipinfo {
 
     my $nr_entries = $zip->numberOfMembers();
 
-    print "Zip file size: $archive_size bytes, "
-        . "number of entries: $nr_entries\n";
+    say "Zip file size: $archive_size bytes, number of entries: $nr_entries";
 
     my $total_uncompressed_size;
     my $total_compressed_size;
@@ -241,7 +242,7 @@ sub zipinfo {
         $total_compressed_size   += $member->compressedSize();
 
         my $member_info = get_member_info( $member, $zipinfo_time );
-        print "$member_info\n";
+        say $member_info;
     }
 
     my $compression_ratio = 0.0;
@@ -304,7 +305,7 @@ sub unzip {
         # Print archive comment
         my $archive_comment = $zip->zipfileComment();
         if ( $archive_comment ne q{} ) {
-            print $archive_comment, "\n";
+            say $archive_comment;
         }
     }
 
@@ -313,8 +314,8 @@ sub unzip {
     if ($list) {
 
         # Print list header
-        print "  Length      Date    Time    Name\n";
-        print "---------  ---------- -----   ----\n";
+        say '  Length      Date    Time    Name';
+        say '---------  ---------- -----   ----';
     }
 
     $unzip_option_ref->{replace} = \$replace;
@@ -368,7 +369,7 @@ MEMBER:
     if ($list) {
 
         # Print list footer
-        print "---------                     -------\n";
+        say '---------                     -------';
         my $format = "%9u                     %u file%s\n";
         printf $format,
             $total_length, $total_count,
@@ -377,25 +378,25 @@ MEMBER:
 
     # print caution about unmatched filenames
     for my $file ( grep { !$matched_file{$_} } @{$files_ref} ) {
-        print "caution: filename not matched:  $file\n";
+        say "caution: filename not matched:  $file";
     }
     for my $xfile ( grep { !$matched_xfile{$_} } @{$xfiles_ref} ) {
-        print "caution: excluded filename not matched:  $xfile\n";
+        say "caution: excluded filename not matched:  $xfile";
     }
 
     if ($test) {
         if ($error_in_archive) {
-            print "At least one error was detected in $archive_name.\n";
+            say "At least one error was detected in $archive_name.";
         }
         elsif ( $total_count == 0 ) {
-            print "Caution:  zero files tested in $archive_name.\n";
+            say "Caution:  zero files tested in $archive_name.";
         }
         elsif ( @{$files_ref} || @{$xfiles_ref} ) {
-            print "No errors detected in $archive_name"
-                . " for the $total_count files tested.\n";
+            say "No errors detected in $archive_name"
+                . " for the $total_count files tested.";
         }
         else {
-            print "No errors detected in compressed data of $archive_name.\n";
+            say "No errors detected in compressed data of $archive_name.";
         }
     }
 
@@ -483,7 +484,7 @@ CHECKING:
         if ( $status == AZ_OK ) {
             $member->extractToFileHandle(*STDOUT);
             if ( !$quiet ) {
-                print "\n";
+                say q{};
             }
         }
         else {
@@ -504,7 +505,7 @@ CHECKING:
             # Print individual file comment
             my $file_comment = $member->fileComment();
             if ( $file_comment ne q{} ) {
-                print $file_comment, "\n";
+                say $file_comment;
             }
         }
     }
@@ -526,7 +527,7 @@ CHECKING:
             = Archive::Zip::computeCRC32( $member->contents() );
         if ( $crc32 == $computed_crc32 ) {
             if ( !$quiet ) {
-                print "   OK\n";
+                say '   OK';
             }
         }
         else {
@@ -593,7 +594,8 @@ sub get_response_for {
         }
     }
 
-    print qq{\n(EOF or read error, treating as "[N]one" ...)\n};
+    say q{};
+    say '(EOF or read error, treating as "[N]one" ...)';
     return 'None';
 }
 
@@ -616,13 +618,13 @@ sub print_progress_using {
     my ( $member, $extracted_name ) = @_;
 
     if ( $member->isDirectory() ) {
-        print "  creating: $extracted_name\n";
+        say "  creating: $extracted_name";
     }
     elsif ( $member->desiredCompressionMethod() == COMPRESSION_STORED ) {
-        print " extracting: $extracted_name\n";
+        say " extracting: $extracted_name";
     }
     else {
-        print "  inflating: $extracted_name\n";
+        say "  inflating: $extracted_name";
     }
 
     return;
@@ -706,13 +708,13 @@ for my $archive (@archives) {
     }
 
     if ( @archives > 1 ) {
-        print "\n";
+        say q{};
     }
 }
 
 if ($nr_success) {
     if ( $nr_success > 1 ) {
-        print "$nr_success archives were successfully processed.\n";
+        say "$nr_success archives were successfully processed.";
     }
 
     exit;
