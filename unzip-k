@@ -1,4 +1,4 @@
-#!/usr/bin/perl
+#!/usr/bin/env perl
 #
 # unzip-k - list, test and extract a ZIP archive containing file or
 # directory name encoded in Microsoft's CP949
@@ -35,27 +35,27 @@ use strict;
 
 use warnings;
 
-use Archive::Zip qw( :ERROR_CODES :CONSTANTS :MISC_CONSTANTS );
+use Archive::Zip qw< :ERROR_CODES :CONSTANTS :MISC_CONSTANTS >;
 
-use Encode;
+use Encode qw< encode_utf8 decode >;
 
 use Getopt::Long;
 
-use Text::Glob qw( match_glob );
+use Text::Glob qw< match_glob >;
 
-use File::Spec::Functions qw ( catfile splitpath );
+use File::Spec::Functions qw< catfile splitpath >;
 
-use POSIX qw( strftime );
+use POSIX qw< strftime >;
 
 use IO::Prompt;
 
-use File::Glob qw( :glob );
+use File::Glob qw< :glob >;
 
-use Fcntl qw( :mode );
+use Fcntl qw< :mode >;
 
 sub print_usage {
     print <<'END_USAGE';
-UnZip-K 1.0 of 19 January 2011, by Seungwon Jeong.
+UnZip-K 1.0.2 of 27 February 2011, by Seungwon Jeong.
 
 Usage: unzip-k [-Z] [-opts[modifiers]] file[.zip] [list] [-x xlist] [-d exdir]
   Default action is to extract files in list, except those in xlist, to exdir;
@@ -91,7 +91,7 @@ sub get_dos_file_attr_string {
     my $dos_file_attr_string;
 
     # Open file handle to "in memory" file held in Perl scalar
-    open my $fh, '>', \$dos_file_attr_string or die;
+    open my $fh, '>', \$dos_file_attr_string or die 'open failed';
 
     # See zipinfo.c in unzip
     print {$fh} 'r';
@@ -114,7 +114,7 @@ sub get_unix_file_attr_string {
     my $unix_file_attr_string;
 
     # Open file handle to "in memory" file held in Perl scalar
-    open my $fh, '>', \$unix_file_attr_string or die;
+    open my $fh, '>', \$unix_file_attr_string or die 'open failed';
 
     # User
     print {$fh} $unix_file_attr & S_IRUSR ? 'r' : '-';
@@ -142,7 +142,7 @@ sub get_member_info {
     my $member_info;
 
     # Open file handle to "in memory" file held in Perl scalar
-    open my $fh, '>', \$member_info or die;
+    open my $fh, '>', \$member_info or die 'open failed';
 
     print {$fh} $member->isDirectory() ? 'd' : '-';
 
@@ -262,22 +262,22 @@ sub zipinfo {
 }
 
 sub unzip {
-    my ( $archive_name, $arg_ref ) = @_;
-    my $files_ref        = $arg_ref->{files};
-    my $xfiles_ref       = $arg_ref->{xfiles};
-    my $exdir            = $arg_ref->{exdir};
-    my $crt              = $arg_ref->{crt};
-    my $list             = $arg_ref->{list};
-    my $pipe             = $arg_ref->{pipe};
-    my $test             = $arg_ref->{test};
-    my $comment_only     = $arg_ref->{comment_only};
-    my $fresh            = $arg_ref->{fresh};
-    my $update           = $arg_ref->{update};
-    my $case_insensitive = $arg_ref->{case_insensitive};
-    my $junk_paths       = $arg_ref->{junk_paths};
-    my $never_overwrite  = $arg_ref->{never_overwrite};
-    my $overwrite        = $arg_ref->{overwrite};
-    my $quiet            = $arg_ref->{quiet};
+    my ( $archive_name, $unzip_option_ref ) = @_;
+    my $files_ref        = $unzip_option_ref->{files};
+    my $xfiles_ref       = $unzip_option_ref->{xfiles};
+    my $exdir            = $unzip_option_ref->{exdir};
+    my $crt              = $unzip_option_ref->{crt};
+    my $list             = $unzip_option_ref->{list};
+    my $pipe             = $unzip_option_ref->{pipe};
+    my $test             = $unzip_option_ref->{test};
+    my $comment_only     = $unzip_option_ref->{comment_only};
+    my $fresh            = $unzip_option_ref->{fresh};
+    my $update           = $unzip_option_ref->{update};
+    my $case_insensitive = $unzip_option_ref->{case_insensitive};
+    my $junk_paths       = $unzip_option_ref->{junk_paths};
+    my $never_overwrite  = $unzip_option_ref->{never_overwrite};
+    my $overwrite        = $unzip_option_ref->{overwrite};
+    my $quiet            = $unzip_option_ref->{quiet};
 
     if ( !$pipe && !$quiet ) {
         print_archive_name($archive_name);
@@ -317,19 +317,8 @@ sub unzip {
         print "---------  ---------- -----   ----\n";
     }
 
-    $arg_ref = {
-        replace    => \$replace,
-        exdir      => $exdir,
-        crt        => $crt,
-        list       => $list,
-        pipe       => $pipe,
-        test       => $test,
-        fresh      => $fresh,
-        update     => $update,
-        error      => \$error_in_archive,
-        junk_paths => $junk_paths,
-	quiet      => $quiet,
-    };
+    $unzip_option_ref->{replace} = \$replace;
+    $unzip_option_ref->{error}   = \$error_in_archive;
 
 MEMBER:
     for my $member ( $zip->members() ) {
@@ -365,14 +354,14 @@ MEMBER:
 
                     $total_length += $member->uncompressedSize();
                     $total_count++;
-                    extract_member( $member, $arg_ref );
+                    extract_member( $member, $unzip_option_ref );
                 }
             }
         }
         else {
             $total_length += $member->uncompressedSize();
             $total_count++;
-            extract_member( $member, $arg_ref );
+            extract_member( $member, $unzip_option_ref );
         }
     }
 
@@ -414,18 +403,18 @@ MEMBER:
 }
 
 sub extract_member {
-    my ( $member, $arg_ref ) = @_;
-    my $replace_ref = $arg_ref->{replace};
-    my $exdir       = $arg_ref->{exdir};
-    my $crt         = $arg_ref->{crt};
-    my $list        = $arg_ref->{list};
-    my $pipe        = $arg_ref->{pipe};
-    my $test        = $arg_ref->{test};
-    my $fresh       = $arg_ref->{fresh};
-    my $update      = $arg_ref->{update};
-    my $error_ref   = $arg_ref->{error};
-    my $junk_paths  = $arg_ref->{junk_paths};
-    my $quiet       = $arg_ref->{quiet};
+    my ( $member, $unzip_option_ref ) = @_;
+    my $replace_ref = $unzip_option_ref->{replace};
+    my $exdir       = $unzip_option_ref->{exdir};
+    my $crt         = $unzip_option_ref->{crt};
+    my $list        = $unzip_option_ref->{list};
+    my $pipe        = $unzip_option_ref->{pipe};
+    my $test        = $unzip_option_ref->{test};
+    my $fresh       = $unzip_option_ref->{fresh};
+    my $update      = $unzip_option_ref->{update};
+    my $error_ref   = $unzip_option_ref->{error};
+    my $junk_paths  = $unzip_option_ref->{junk_paths};
+    my $quiet       = $unzip_option_ref->{quiet};
 
     # Get file name to be extracted
     my $extracted_name = decode_name_of($member);
@@ -645,48 +634,38 @@ Getopt::Long::Configure('pass_through');
 GetOptions( 'x=s{1,}' => \@xfiles ) or do { print_usage(); exit 1; };
 
 # UnZip mode
-my $exdir;
-my $crt;
-my $list;
-my $pipe;
-my $test;
-my $comment_only;
-my $case_insensitive;
-my $junk_paths;
-my $never_overwrite;
-my $overwrite;
-my $quiet;
-my $strict_wildcard_slash;
-my $fresh;
-my $update;
+my %unzip_option;
+$unzip_option{xfiles} = \@xfiles;
 
 # ZipInfo mode
-my $zipinfo;
+my $zipinfo_mode;
 my $zipinfo_time;
 my $zipinfo_short;
 
+my $strict_wildcard_slash;
+
 Getopt::Long::Configure( 'no_pass_through', 'bundling' );
 my @args = (
-    'd=s' => \$exdir,
+    'd=s' => \$unzip_option{exdir},
 
     # Options
-    'Z' => \$zipinfo,
-    'c' => \$crt,
-    'l' => \$list,
-    'p' => \$pipe,
-    't' => \$test,
+    'Z' => \$zipinfo_mode,
+    'c' => \$unzip_option{crt},
+    'l' => \$unzip_option{list},
+    'p' => \$unzip_option{pipe},
+    't' => \$unzip_option{test},
     'T' => \$zipinfo_time,
     's' => \$zipinfo_short,
-    'z' => \$comment_only,
-    'f' => \$fresh,
-    'u' => \$update,
+    'z' => \$unzip_option{comment_only},
+    'f' => \$unzip_option{fresh},
+    'u' => \$unzip_option{update},
 
     # Modifiers
-    'C' => \$case_insensitive,
-    'j' => \$junk_paths,
-    'n' => \$never_overwrite,
-    'o' => \$overwrite,
-    'q' => \$quiet,
+    'C' => \$unzip_option{case_insensitive},
+    'j' => \$unzip_option{junk_paths},
+    'n' => \$unzip_option{never_overwrite},
+    'o' => \$unzip_option{overwrite},
+    'q' => \$unzip_option{quiet},
     'W' => \$strict_wildcard_slash,
 );
 GetOptions(@args) or do { print_usage(); exit 1; };
@@ -701,26 +680,9 @@ if ( @ARGV < 1 ) {
 }
 
 my ( $file, @files ) = @ARGV;
+$unzip_option{files} = \@files;
 
 undef @ARGV;    # For IO::Prompt
-
-my $arg_ref = {
-    files            => \@files,
-    xfiles           => \@xfiles,
-    exdir            => $exdir,
-    crt              => $crt,
-    list             => $list,
-    pipe             => $pipe,
-    test             => $test,
-    comment_only     => $comment_only,
-    fresh            => $fresh,
-    update           => $update,
-    case_insensitive => $case_insensitive,
-    junk_paths       => $junk_paths,
-    never_overwrite  => $never_overwrite,
-    overwrite        => $overwrite,
-    quiet            => $quiet,
-};
 
 # Escape meta characters
 # [, ], {, } => \[, \], \{, \},
@@ -732,13 +694,13 @@ my @archives = bsd_glob($file);
 my $nr_success = 0;
 
 for my $archive (@archives) {
-    if ($zipinfo) {
+    if ($zipinfo_mode) {
         if ( zipinfo( $archive, $zipinfo_time ) ) {
             $nr_success++;
         }
     }
     else {
-        if ( unzip( $archive, $arg_ref ) ) {
+        if ( unzip( $archive, \%unzip_option ) ) {
             $nr_success++;
         }
     }
@@ -759,7 +721,7 @@ if ($nr_success) {
 # Try to append .zip or .ZIP suffix
 for my $assumption ( "$file.zip", "$file.ZIP" ) {
     if ( -f $assumption ) {
-        unzip( $assumption, $arg_ref ) and exit;
+        unzip( $assumption, \%unzip_option ) and exit;
     }
 }
 
