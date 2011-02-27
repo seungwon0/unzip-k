@@ -328,17 +328,15 @@ MEMBER:
         next MEMBER if $junk_paths && $member->isDirectory();
 
         # Check archive members to be excluded from processing
-        if ( @{$xfiles_ref} ) {
-            for my $xfile ( @{$xfiles_ref} ) {
-                if (match_glob( $xfile, $member_name )
-                    || ( $case_insensitive
-                        && match_glob( lc $xfile, lc $member_name ) )
-                    )
-                {
-                    $matched_xfile{$xfile} = 1;
+        for my $xfile ( @{$xfiles_ref} ) {
+            if (match_glob( $xfile, $member_name )
+                || ( $case_insensitive
+                    && match_glob( lc $xfile, lc $member_name ) )
+                )
+            {
+                $matched_xfile{$xfile} = 1;
 
-                    next MEMBER;
-                }
+                next MEMBER;
             }
         }
 
@@ -452,26 +450,13 @@ CHECKING:
 
         last CHECKING if defined ${$replace_ref} && ${$replace_ref} eq 'All';
 
-        my $response = get_response_for($extracted_name);
-        if ( $response eq 'yes' ) {
-            last CHECKING;
-        }
-        elsif ( $response eq 'no' ) {
-            return;
-        }
-        elsif ( $response eq 'All' ) {
-            ${$replace_ref} = 'All';
-            last CHECKING;
-        }
-        elsif ( $response eq 'None' ) {
-            ${$replace_ref} = 'None';
-            return;
-        }
-        elsif ( $response eq 'rename' ) {
-            $extracted_name = get_new_name();
-        }
-        else {
-            warn "invalid response!\n";
+        given ( get_response_for($extracted_name) ) {
+            when ('yes')  { last CHECKING; }
+            when ('no')   { return; }
+            when ('All')  { ${$replace_ref} = 'All'; last CHECKING; }
+            when ('None') { ${$replace_ref} = 'None'; return; }
+            when ('rename') { $extracted_name = get_new_name(); }
+            default { warn "invalid response!\n"; }
         }
     }
 
@@ -557,40 +542,18 @@ sub decode_name_of {
 sub get_response_for {
     my ($extracted_name) = @_;
 
-    my %pattern_for = (
-        yes    => qr{^y}xms,
-        no     => qr{^n}xms,
-        All    => qr{^A}xms,
-        None   => qr{^N}xms,
-        rename => qr{^r}xms,
-    );
-
     my $prompt
         = "replace $extracted_name? [y]es, [n]o, [A]ll, [N]one, [r]ename: ";
 
     while ( my $response = prompt $prompt ) {
-        if ( $response =~ $pattern_for{yes} ) {
-            return 'yes';
-        }
-        elsif ( $response =~ $pattern_for{no} ) {
-            return 'no';
-        }
-        elsif ( $response =~ $pattern_for{All} ) {
-            return 'All';
-        }
-        elsif ( $response =~ $pattern_for{None} ) {
-            return 'None';
-        }
-        elsif ( $response =~ $pattern_for{rename} ) {
-            return 'rename';
-        }
-        else {
-            if ( $response eq q{} ) {
-                warn "error:  invalid response [{ENTER}]\n";
-            }
-            else {
-                warn "error:  invalid response [$response]\n";
-            }
+        given ($response) {
+            when (/^y/xms) { return 'yes'; }
+            when (/^n/xms) { return 'no'; }
+            when (/^A/xms) { return 'All'; }
+            when (/^N/xms) { return 'None'; }
+            when (/^r/xms) { return 'rename'; }
+            when (q{})     { warn "error:  invalid response [{ENTER}]\n"; }
+            default        { warn "error:  invalid response [$response]\n"; }
         }
     }
 
@@ -647,7 +610,7 @@ my $zipinfo_short;
 my $strict_wildcard_slash;
 
 Getopt::Long::Configure( 'no_pass_through', 'bundling' );
-my @args = (
+my @get_options_args = (
     'd=s' => \$unzip_option{exdir},
 
     # Options
@@ -670,7 +633,7 @@ my @args = (
     'q' => \$unzip_option{quiet},
     'W' => \$strict_wildcard_slash,
 );
-GetOptions(@args) or do { print_usage(); exit 1; };
+GetOptions(@get_options_args) or do { print_usage(); exit 1; };
 
 if ( !$strict_wildcard_slash ) {
     $Text::Glob::strict_wildcard_slash = 0;
