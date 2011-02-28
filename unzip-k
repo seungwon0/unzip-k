@@ -258,6 +258,81 @@ sub zipinfo {
     return 1;
 }
 
+sub print_comment {
+    my ($comment) = @_;
+
+    if ( $comment ne q{} ) {
+        say $comment;
+    }
+
+    return;
+}
+
+sub print_archive_comment_of {
+    my ($zip) = @_;
+
+    print_comment( $zip->zipfileComment() );
+
+    return;
+}
+
+sub print_file_comment_of {
+    my ($member) = @_;
+
+    print_comment( $member->fileComment() );
+
+    return;
+}
+
+sub print_list_header {
+    say '  Length      Date    Time    Name';
+    say '---------  ---------- -----   ----';
+
+    return;
+}
+
+sub print_list_contents_of {
+    my ($member) = @_;
+
+    my $format = "%9u  %s   %s\n";
+    printf $format,
+        $member->uncompressedSize(),
+        strftime( '%F %R', localtime $member->lastModTime() ),
+        decode_name_of($member);
+
+    return;
+}
+
+sub print_list_footer_using {
+    my ( $total_length, $total_count ) = @_;
+
+    say '---------                     -------';
+    my $format = "%9u                     %u file%s\n";
+    printf $format, $total_length, $total_count,
+        $total_count == 1 ? q{} : 's';
+
+    return;
+}
+
+sub match_with_globs {
+    my ($arg_ref)           = @_;
+    my $name                = $arg_ref->{name};
+    my $globs_ref           = $arg_ref->{globs_ref};
+    my $case_insensitive    = $arg_ref->{case_insensitive};
+    my $glob_is_matched_ref = $arg_ref->{glob_is_matched_ref};
+
+    for my $glob ( @{$globs_ref} ) {
+        if ( match_glob( $glob, $name )
+            || ( $case_insensitive && match_glob( lc $glob, lc $name ) ) )
+        {
+            $glob_is_matched_ref->{$glob} = 1;
+            return 1;
+        }
+    }
+
+    return;
+}
+
 sub unzip {
     my ( $archive_name, $unzip_option_ref ) = @_;
     my $files_ref        = $unzip_option_ref->{files};
@@ -284,25 +359,17 @@ sub unzip {
     $zip->read($archive_name) == AZ_OK or return;
 
     if ( !$pipe && !$quiet ) {
-
-        # Print archive comment
-        my $archive_comment = $zip->zipfileComment();
-        if ( $archive_comment ne q{} ) {
-            say $archive_comment;
-        }
+        print_archive_comment_of($zip);
     }
 
     return 1 if $comment_only;
 
     if ($list) {
-
-        # Print list header
-        say '  Length      Date    Time    Name';
-        say '---------  ---------- -----   ----';
+        print_list_header();
     }
 
-    my %matched_file;
-    my %matched_xfile;
+    my %file_is_matched;
+    my %xfile_is_matched;
 
     my $total_length = 0;
     my $total_count  = 0;
@@ -318,62 +385,44 @@ sub unzip {
 
 MEMBER:
     for my $member ( $zip->members() ) {
-        my $member_name = decode_name_of($member);
-
         next MEMBER if $junk_paths && $member->isDirectory();
 
+        my $member_name = decode_name_of($member);
+
         # Check archive members to be excluded from processing
-        for my $xfile ( @{$xfiles_ref} ) {
-            if (match_glob( $xfile, $member_name )
-                || ( $case_insensitive
-                    && match_glob( lc $xfile, lc $member_name ) )
-                )
-            {
-                $matched_xfile{$xfile} = 1;
-
-                next MEMBER;
+        my $to_be_excluded = match_with_globs(
+            {   name                => $member_name,
+                globs_ref           => $xfiles_ref,
+                case_insensitive    => $case_insensitive,
+                glob_is_matched_ref => \%xfile_is_matched
             }
-        }
+        );
+        next MEMBER if $to_be_excluded;
 
-        if ( @{$files_ref} ) {
-
-            # Check archive members to be processed
-            for my $file ( @{$files_ref} ) {
-                if (match_glob( $file, $member_name )
-                    || ( $case_insensitive
-                        && match_glob( lc $file, lc $member_name ) )
-                    )
-                {
-                    $matched_file{$file} = 1;
-
-                    $total_length += $member->uncompressedSize();
-                    $total_count++;
-                    extract_member( $member, $unzip_option_ref );
-                }
+        # Check archive members to be processed
+        my $to_be_processed = @{$files_ref} == 0 || match_with_globs(
+            {   name                => $member_name,
+                globs_ref           => $files_ref,
+                case_insensitive    => $case_insensitive,
+                glob_is_matched_ref => \%file_is_matched
             }
-        }
-        else {
-            $total_length += $member->uncompressedSize();
-            $total_count++;
-            extract_member( $member, $unzip_option_ref );
-        }
+        );
+        next MEMBER if !$to_be_processed;
+
+        $total_length += $member->uncompressedSize();
+        $total_count++;
+        extract_member( $member, $unzip_option_ref );
     }
 
     if ($list) {
-
-        # Print list footer
-        say '---------                     -------';
-        my $format = "%9u                     %u file%s\n";
-        printf $format,
-            $total_length, $total_count,
-            $total_count == 1 ? q{} : 's';
+        print_list_footer_using( $total_length, $total_count );
     }
 
     # print caution about unmatched filenames
-    for my $file ( grep { !$matched_file{$_} } @{$files_ref} ) {
+    for my $file ( grep { !$file_is_matched{$_} } @{$files_ref} ) {
         say "caution: filename not matched:  $file";
     }
-    for my $xfile ( grep { !$matched_xfile{$_} } @{$xfiles_ref} ) {
+    for my $xfile ( grep { !$xfile_is_matched{$_} } @{$xfiles_ref} ) {
         say "caution: excluded filename not matched:  $xfile";
     }
 
@@ -467,21 +516,10 @@ CHECKING:
         }
     }
     elsif ($list) {
-
-        # Print list contents
-        my $format = "%9u  %s   %s\n";
-        printf $format,
-            $member->uncompressedSize(),
-            strftime( '%F %R', localtime $member->lastModTime() ),
-            $extracted_name;
+        print_list_contents_of($member);
 
         if ( !$quiet ) {
-
-            # Print individual file comment
-            my $file_comment = $member->fileComment();
-            if ( $file_comment ne q{} ) {
-                say $file_comment;
-            }
+            print_file_comment_of($member);
         }
     }
     elsif ($test) {
@@ -504,6 +542,7 @@ CHECKING:
         }
         else {
             ${$error_ref} = 1;
+
             if ( !$quiet ) {
                 printf " bad CRC %08lx  (should be %08lx)\n",
                     $crc32, $computed_crc32;
