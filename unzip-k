@@ -1,15 +1,10 @@
 #!/usr/bin/env perl
 #
-# unzip-k - list, test and extract a ZIP archive containing file or
-# directory name encoded in Microsoft's CP949
+# unzip-k - UnZip for Korean
 #
 # unzip-k will list, test, or extract compressed files from a ZIP
 # archive containing file or directory name encoded in Microsoft's
 # CP949.
-#
-# This program requires Archive::Zip, Text::Glob and IO::Prompt
-# modules. In Ubuntu, you may need to install libarchive-zip-perl,
-# libtext-glob-perl and libio-prompt-perl package.
 #
 # http://ubuntu.or.kr/viewtopic.php?f=4&t=13970
 #
@@ -59,7 +54,7 @@ use Fcntl qw< :mode >;
 
 sub print_usage {
     print <<'END_USAGE';
-UnZip-K 1.0.2 of 27 February 2011, by Seungwon Jeong.
+UnZip-K 1.0.3 of 28 February 2011, by Seungwon Jeong.
 
 Usage: unzip-k [-Z] [-opts[modifiers]] file[.zip] [list] [-x xlist] [-d exdir]
   Default action is to extract files in list, except those in xlist, to exdir;
@@ -651,12 +646,8 @@ $unzip_option{files} = \@files;
 
 undef @ARGV;    # For IO::Prompt
 
-# Escape meta characters
-# [, ], {, } => \[, \], \{, \},
-$file =~ s/(?<meta>[\[\]{}])/\\$+{meta}/xmsg;
-
 # Do not use glob here because $file may contain space character.
-my @archives = bsd_glob($file);
+my @archives = grep { -f } bsd_glob($file);
 
 my $nr_success = 0;
 
@@ -685,8 +676,7 @@ if ($nr_success) {
     exit;
 }
 
-# Try to append .zip or .ZIP suffix
-for my $assumption ( "$file.zip", "$file.ZIP" ) {
+for my $assumption ( $file, "$file.zip", "$file.ZIP" ) {
     if ( -f $assumption ) {
         unzip( $assumption, \%unzip_option ) and exit;
     }
@@ -698,8 +688,7 @@ __END__
 
 =head1 NAME
 
-unzip-k - list, test and extract a ZIP archive containing file or
-directory name encoded in Microsoft's CP949
+unzip-k - UnZip for Korean
 
 =head1 SYNOPSIS
 
@@ -932,34 +921,34 @@ To use I<unzip-k> to extract all members of the archive F<letters.zip>
 into the current directory and subdirectories below it, creating any
 subdirectories as necessary:
 
-unzip-k letters
+	unzip-k letters
 
 To extract all members of F<letters.zip> into the current directory
 only:
 
-unzip-k -j letters
+	unzip-k -j letters
 
 To test F<letters.zip>, printing only a summary message indicating
 whether the archive is OK or not:
 
-unzip-k -tq letters
+	unzip-k -tq letters
 
 To extract the binary file F<paper1.dvi> to standard output and pipe
 it to a printing program:
 
-unzip-k -p articles paper1.dvi | dvips
+	unzip-k -p articles paper1.dvi | dvips
 
 To extract all FORTRAN and C source files--*.f, *.c, *.h, and
 Makefile--into the /tmp directory:
 
-unzip-k source.zip "*.[fch]" Makefile -d /tmp
+	unzip-k source.zip "*.[fch]" Makefile -d /tmp
 
 (the double quotes are necessary only in Unix and only if globbing is
 turned on).  To extract all FORTRAN and C source files, regardless of
 case (e.g., both *.c and *.C, and any makefile, Makefile, MAKEFILE or
 similar):
 
-unzip-k -C source.zip "*.[fch]" makefile -d /tmp
+	unzip-k -C source.zip "*.[fch]" makefile -d /tmp
 
 To extract only newer versions of the files already in the current
 directory, without querying (NOTE: be careful of unzipping in one
@@ -967,37 +956,13 @@ timezone a zipfile created in another--ZIP archives other than those
 created by Zip 2.1 or later contain no timezone information, and a
 ``newer'' file from an eastern timezone may, in fact, be older):
 
-unzip -fo sources
+	unzip-k -fo sources
 
 To extract newer versions of the files already in the current
 directory and to create any files not already there (same caveat as
 previous example):
 
-unzip -uo sources
-
-=head1 DEPENDENCIES
-
-=over
-
-=item C<Archive::Zip>
-
-=item C<Encode>
-
-=item C<Text::Glob>
-
-=item C<Getopt::Long>
-
-=item C<File::Spec::Functions>
-
-=item C<POSIX>
-
-=item C<IO::Prompt>
-
-=item C<File::Glob>
-
-=item C<Fcntl>
-
-=back
+	unzip-k -uo sources
 
 =head1 URL
 
