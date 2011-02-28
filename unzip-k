@@ -238,8 +238,7 @@ sub zipinfo {
         $total_uncompressed_size += $member->uncompressedSize();
         $total_compressed_size   += $member->compressedSize();
 
-        my $member_info = get_member_info( $member, $zipinfo_time );
-        say $member_info;
+        say get_member_info( $member, $zipinfo_time );
     }
 
     my $compression_ratio = 0.0;
@@ -284,19 +283,6 @@ sub unzip {
     my $zip = Archive::Zip->new();
     $zip->read($archive_name) == AZ_OK or return;
 
-    my %matched_file;
-    my %matched_xfile;
-
-    my $replace
-        = $never_overwrite ? 'None'
-        : $overwrite       ? 'All'
-        :                    undef;
-
-    my $total_length = 0;
-    my $total_count  = 0;
-
-    my $error_in_archive;
-
     if ( !$pipe && !$quiet ) {
 
         # Print archive comment
@@ -315,8 +301,20 @@ sub unzip {
         say '---------  ---------- -----   ----';
     }
 
+    my %matched_file;
+    my %matched_xfile;
+
+    my $total_length = 0;
+    my $total_count  = 0;
+
+    my $replace
+        = $never_overwrite ? 'None'
+        : $overwrite       ? 'All'
+        :                    undef;
     $unzip_option_ref->{replace} = \$replace;
-    $unzip_option_ref->{error}   = \$error_in_archive;
+
+    my $error_in_archive;
+    $unzip_option_ref->{error} = \$error_in_archive;
 
 MEMBER:
     for my $member ( $zip->members() ) {
@@ -461,16 +459,11 @@ CHECKING:
         print_progress_using( $member, $extracted_name );
     }
 
-    if ($crt) {
-        my ( $contents, $status ) = $member->contents();
-        if ( $status == AZ_OK ) {
-            $member->extractToFileHandle(*STDOUT);
-            if ( !$quiet ) {
-                say q{};
-            }
-        }
-        else {
-            warn "extract error!\n";
+    if ( $crt || $pipe ) {
+        $member->extractToFileHandle(*STDOUT) == AZ_OK
+            or warn "extract error!\n";
+        if ( $crt && !$quiet ) {
+            say q{};
         }
     }
     elsif ($list) {
@@ -490,9 +483,6 @@ CHECKING:
                 say $file_comment;
             }
         }
-    }
-    elsif ($pipe) {
-        $member->extractToFileHandle(*STDOUT);
     }
     elsif ($test) {
         if ( !$quiet ) {
@@ -647,7 +637,7 @@ $unzip_option{files} = \@files;
 undef @ARGV;    # For IO::Prompt
 
 # Do not use glob here because $file may contain space character.
-my @archives = grep { -f } bsd_glob($file);
+my @archives = grep {-f} bsd_glob($file);
 
 my $nr_success = 0;
 
