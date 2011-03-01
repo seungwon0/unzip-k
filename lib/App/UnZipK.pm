@@ -368,17 +368,13 @@ sub _print_comment {
 sub _print_archive_comment_of {
     my ($zip) = @_;
 
-    _print_comment( $zip->zipfileComment() );
-
-    return;
+    return _print_comment( $zip->zipfileComment() );
 }
 
 sub _print_file_comment_of {
     my ($member) = @_;
 
-    _print_comment( $member->fileComment() );
-
-    return;
+    return _print_comment( $member->fileComment() );
 }
 
 sub _print_list_header {
@@ -476,10 +472,11 @@ sub _extract_member {
     # Skip non-existing file
     return if $fresh && !$update && !-e $extracted_name;
 
-    # Skip newer file
-    return
-        if ( $fresh || $update )
-        && _file_is_newer( $member, $extracted_name );
+    if ( $fresh || $update ) {
+
+        # Skip newer file
+        return _file_is_newer( $member, $extracted_name );
+    }
 
     # Check existing file or directory
 CHECKING:
