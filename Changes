@@ -1,0 +1,8 @@
+Revision history for unzip-k
+
+1.1.0   Date/time
+        Started to use module-starter.
+        Changed license from gpl to perl.
+	Fixed a bug about -j option.
+	Fixed a bug about -Z option.
+

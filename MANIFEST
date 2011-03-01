@@ -1,0 +1,10 @@
+Build.PL
+Changes
+MANIFEST
+README
+lib/App/UnZipK.pm
+bin/unzip-k
+t/00-load.t
+t/manifest.t
+t/pod-coverage.t
+t/pod.t

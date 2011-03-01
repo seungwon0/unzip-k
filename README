@@ -1,45 +1,40 @@
-UnZip-K
-=======
+unzip-k 1.1.0
 
-UnZip-K is an extraction utility for a zip archive containing file or
-direcotry name encoded in Microsoft's CP949.
+unzip-k will list, test, or extract compressed files from a ZIP
+archive containing file or directory name encoded in Microsoft's
+CP949.
 
-You can use this program to list, test, or extract compressed files
-from a ZIP archive.
-
-This program requires Archive::Zip, Text::Glob and IO::Prompt modules.
-In Ubuntu, you may need to install libarchive-zip-perl,
-libtext-glob-perl and libio-prompt-perl package.
-
-Learn more about this program at the following link (Korean):
 http://ubuntu.or.kr/viewtopic.php?f=4&t=13970
 
 
-INSTALL
--------
+INSTALLATION
 
-% make
-% make install
+To install this module, run the following commands:
 
-
-UNINSTALLL
-----------
-
-% make uninstall
+	perl Build.PL
+	./Build
+	./Build test
+	./Build install
 
 
-SEE ALSO
---------
+SUPPORT AND DOCUMENTATION
 
-https://gist.github.com/787856
+After installing, you can find documentation for this module with the
+perldoc command.
 
-URL
----
+    perldoc App::UnZipK
 
-https://github.com/seungwon0/unzip-k
+You can also look for information at:
+
+    https://github.com/seungwon0/unzip-k
 
 
-AUTHOR
-------
+LICENSE AND COPYRIGHT
 
-Seungwon Jeong <seungwon0@gmail.com>
+Copyright (C) 2011 Seungwon Jeong
+
+This program is free software; you can redistribute it and/or modify it
+under the terms of either: the GNU General Public License as published
+by the Free Software Foundation; or the Artistic License.
+
+See http://dev.perl.org/licenses/ for more information.
