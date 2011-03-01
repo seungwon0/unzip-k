@@ -1,6 +1,6 @@
 Revision history for unzip-k
 
-1.1.0   Date/time
+1.1.0   Tue Mar 1 14:25:38 2011 +0900
         Started to use module-starter.
         Changed license from gpl to perl.
 	Fixed a bug about -j option.
