@@ -54,7 +54,7 @@ use Fcntl qw< :mode >;
 
 sub print_usage {
     print <<'END_USAGE';
-UnZip-K 1.0.3 of 28 February 2011, by Seungwon Jeong.
+UnZip-K 1.0.4 of 1 March 2011, by Seungwon Jeong.
 
 Usage: unzip-k [-Z] [-opts[modifiers]] file[.zip] [list] [-x xlist] [-d exdir]
   Default action is to extract files in list, except those in xlist, to exdir;
