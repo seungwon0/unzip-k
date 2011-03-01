@@ -394,7 +394,7 @@ MEMBER:
             {   name                => $member_name,
                 globs_ref           => $xfiles_ref,
                 case_insensitive    => $case_insensitive,
-                glob_is_matched_ref => \%xfile_is_matched
+                glob_is_matched_ref => \%xfile_is_matched,
             }
         );
         next MEMBER if $to_be_excluded;
@@ -404,7 +404,7 @@ MEMBER:
             {   name                => $member_name,
                 globs_ref           => $files_ref,
                 case_insensitive    => $case_insensitive,
-                glob_is_matched_ref => \%file_is_matched
+                glob_is_matched_ref => \%file_is_matched,
             }
         );
         next MEMBER if !$to_be_processed;
@@ -445,6 +445,23 @@ MEMBER:
     return 1;
 }
 
+sub junk_paths {
+    my ($path) = @_;
+
+    # Remove directory portion
+    return ( splitpath($path) )[2];
+}
+
+sub file_is_newer {
+    my ( $member, $file ) = @_;
+
+    return if !-e $file;
+
+    return 1 if $member->lastModTime() <= ( stat $file )[9];
+
+    return;
+}
+
 sub extract_member {
     my ( $member, $unzip_option_ref ) = @_;
     my $replace_ref = $unzip_option_ref->{replace};
@@ -463,9 +480,7 @@ sub extract_member {
     my $extracted_name = decode_name_of($member);
     if ( !$crt && !$list && !$pipe && !$test ) {
         if ($junk_paths) {
-
-            # Remove directory portion
-            $extracted_name = ( splitpath($extracted_name) )[2];
+            junk_paths($extracted_name);
         }
 
         if ( defined $exdir && $exdir ne q{} ) {
@@ -473,17 +488,12 @@ sub extract_member {
         }
     }
 
-    if ( $fresh && !$update ) {
+    # Skip non-existing file
+    return if $fresh && !$update && !-e $extracted_name;
 
-        # Skip non-existing file
-        return if !-e $extracted_name;
-    }
-
-    if ( ( $fresh || $update ) && -e $extracted_name ) {
-
-        # Skip newer file
-        return if $member->lastModTime() <= ( stat $extracted_name )[9];
-    }
+    # Skip newer file
+    return
+        if ( $fresh || $update ) && file_is_newer( $member, $extracted_name );
 
     # Check existing file or directory
 CHECKING:
@@ -682,14 +692,10 @@ my $nr_success = 0;
 
 for my $archive (@archives) {
     if ($zipinfo_mode) {
-        if ( zipinfo( $archive, $zipinfo_time ) ) {
-            $nr_success++;
-        }
+        zipinfo( $archive, $zipinfo_time ) and $nr_success++;
     }
     else {
-        if ( unzip( $archive, \%unzip_option ) ) {
-            $nr_success++;
-        }
+        unzip( $archive, \%unzip_option ) and $nr_success++;
     }
 
     if ( @archives > 1 ) {
@@ -706,9 +712,7 @@ if ($nr_success) {
 }
 
 for my $assumption ( $file, "$file.zip", "$file.ZIP" ) {
-    if ( -f $assumption ) {
-        unzip( $assumption, \%unzip_option ) and exit;
-    }
+    exit if -f $assumption && unzip( $assumption, \%unzip_option );
 }
 
 die "unzip-k:  cannot find or open $file, $file.zip or $file.ZIP.\n";
