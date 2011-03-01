@@ -22,17 +22,19 @@ use Text::Glob qw< match_glob >;
 
 use Fcntl qw< :mode >;
 
+use Carp qw< carp >;
+
 =head1 NAME
 
 App::UnZipK - UnZip for Korean
 
 =head1 VERSION
 
-Version 1.1.1
+Version 1.1.2
 
 =cut
 
-our $VERSION = '1.1.1';
+our $VERSION = '1.1.2';
 
 =head1 SYNOPSIS
 
@@ -504,7 +506,7 @@ CHECKING:
 
     if ( $crt || $pipe ) {
         $member->extractToFileHandle(*STDOUT) == AZ_OK
-            or warn "extract error!\n";
+            or carp 'extract error!';
         if ( $crt && !$quiet ) {
             say q{};
         }
@@ -545,7 +547,7 @@ CHECKING:
     }
     else {
         $member->extractToFileNamed($extracted_name) == AZ_OK
-            or warn "extract error!\n";
+            or carp 'extract error!';
     }
 
     return;

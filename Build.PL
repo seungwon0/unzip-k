@@ -21,6 +21,7 @@ my $builder = Module::Build->new(
         'IO::Prompt'            => 0,
         'File::Glob'            => 0,
         'Fcntl'                 => 0,
+        'Carp'                  => 0,
     },
     build_requires     => { 'Test::More' => 0, },
     script_files       => [ 'bin/unzip-k', ],
