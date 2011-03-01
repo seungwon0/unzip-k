@@ -475,7 +475,7 @@ sub _extract_member {
     if ( $fresh || $update ) {
 
         # Skip newer file
-        return _file_is_newer( $member, $extracted_name );
+        return if _file_is_newer( $member, $extracted_name );
     }
 
     # Check existing file or directory
