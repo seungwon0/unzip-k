@@ -44,7 +44,7 @@ our $VERSION = '1.1.0';
     App::UnZipK::zipinfo($archive_name);
 
     # Run UnZip-K as unzip mode.
-    App::UnZipK::unzip($archive_name);
+    App::UnZipK::unzip($archive_name, { overwrite => 1 });
 
 =head1 SUBROUTINES
 
